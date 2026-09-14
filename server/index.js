@@ -1,4 +1,4 @@
-import http from 'node:http';
+﻿import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -35,12 +35,36 @@ const pool = DATABASE_URL
   : null;
 
 /* =========================================
+   PRIORIDADES VALIDAS
+========================================= */
+
+const VALID_PRIORITIES = [
+  'Urgente',
+  'Alta',
+  'Media',
+  'Baja'
+];
+
+function normalizePriority(priority) {
+  return VALID_PRIORITIES.includes(priority)
+    ? priority
+    : 'Media';
+}
+
+/* =========================================
    ARCHIVO LOCAL DE RESPALDO
 ========================================= */
 
 const readLocal = () => {
   try {
-    return JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
+    const data = JSON.parse(
+      fs.readFileSync(DATA_FILE, 'utf8')
+    );
+
+    return data.map(item => ({
+      ...item,
+      priority: normalizePriority(item.priority)
+    }));
   } catch {
     return [];
   }
@@ -59,8 +83,10 @@ const saveLocal = (items) => {
 
 async function initDatabase() {
   if (!pool) {
-    console.log('⚠️ DATABASE_URL no configurada.');
-    console.log('📁 Se utilizará activities.json como almacenamiento local.');
+    console.log('DATABASE_URL no configurada.');
+    console.log(
+      'Se utilizara activities.json como almacenamiento local.'
+    );
     return;
   }
 
@@ -76,11 +102,24 @@ async function initDatabase() {
       created_at TIMESTAMPTZ DEFAULT NOW(),
       source TEXT DEFAULT 'Manual',
       notes TEXT DEFAULT '',
-      reminder_minutes INTEGER DEFAULT 1440
+      reminder_minutes INTEGER DEFAULT 1440,
+      priority TEXT DEFAULT 'Media'
     )
   `);
 
-  console.log('✅ PostgreSQL conectado correctamente.');
+  await pool.query(`
+    ALTER TABLE activities
+    ADD COLUMN IF NOT EXISTS priority TEXT DEFAULT 'Media'
+  `);
+
+  await pool.query(`
+    UPDATE activities
+    SET priority = 'Media'
+    WHERE priority IS NULL
+       OR priority = ''
+  `);
+
+  console.log('PostgreSQL conectado correctamente.');
 }
 
 /* =========================================
@@ -104,12 +143,16 @@ async function getActivities() {
       created_at AS "createdAt",
       source,
       notes,
-      reminder_minutes AS "reminderMinutes"
+      reminder_minutes AS "reminderMinutes",
+      priority
     FROM activities
     ORDER BY created_at DESC
   `);
 
-  return result.rows;
+  return result.rows.map(item => ({
+    ...item,
+    priority: normalizePriority(item.priority)
+  }));
 }
 
 /* =========================================
@@ -118,20 +161,41 @@ async function getActivities() {
 
 async function addActivity(x) {
   const activity = {
-    id: x.id || `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+    id: x.id ||
+      `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+
     course: String(x.course).trim(),
+
     title: String(x.title).trim(),
+
     type: x.type || 'Actividad',
+
     dueDate: x.dueDate || '',
+
     url: x.url || '',
+
     status: x.status || 'Pendiente',
-    createdAt: x.createdAt || new Date().toISOString(),
+
+    createdAt:
+      x.createdAt ||
+      new Date().toISOString(),
+
     source: x.source || 'Manual',
+
     notes: x.notes || '',
-    reminderMinutes: Number.isFinite(Number(x.reminderMinutes))
-      ? Number(x.reminderMinutes)
-      : 1440
+
+    reminderMinutes:
+      Number.isFinite(Number(x.reminderMinutes))
+        ? Number(x.reminderMinutes)
+        : 1440,
+
+    priority:
+      normalizePriority(x.priority)
   };
+
+  /* =========================================
+     MODO LOCAL
+  ========================================= */
 
   if (!pool) {
     const items = readLocal();
@@ -139,7 +203,11 @@ async function addActivity(x) {
     const exists = items.some(
       a =>
         a.id === activity.id ||
-        (a.url && activity.url && a.url === activity.url)
+        (
+          a.url &&
+          activity.url &&
+          a.url === activity.url
+        )
     );
 
     if (!exists) {
@@ -153,6 +221,10 @@ async function addActivity(x) {
     };
   }
 
+  /* =========================================
+     MODO POSTGRESQL
+  ========================================= */
+
   const exists = await pool.query(
     `
     SELECT id
@@ -161,7 +233,10 @@ async function addActivity(x) {
        OR ($2 <> '' AND url = $2)
     LIMIT 1
     `,
-    [activity.id, activity.url]
+    [
+      activity.id,
+      activity.url
+    ]
   );
 
   if (exists.rows.length > 0) {
@@ -184,9 +259,23 @@ async function addActivity(x) {
       created_at,
       source,
       notes,
-      reminder_minutes
+      reminder_minutes,
+      priority
     )
-    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+    VALUES (
+      $1,
+      $2,
+      $3,
+      $4,
+      $5,
+      $6,
+      $7,
+      $8,
+      $9,
+      $10,
+      $11,
+      $12
+    )
     `,
     [
       activity.id,
@@ -199,7 +288,8 @@ async function addActivity(x) {
       activity.createdAt,
       activity.source,
       activity.notes,
-      activity.reminderMinutes
+      activity.reminderMinutes,
+      activity.priority
     ]
   );
 
@@ -214,6 +304,11 @@ async function addActivity(x) {
 ========================================= */
 
 async function updateActivity(id, x) {
+
+  /* =========================================
+     MODO LOCAL
+  ========================================= */
+
   if (!pool) {
     const items = readLocal();
 
@@ -228,6 +323,9 @@ async function updateActivity(id, x) {
     items[index] = {
       ...items[index],
       ...x,
+      priority: normalizePriority(
+        x.priority ?? items[index].priority
+      ),
       id: items[index].id
     };
 
@@ -236,8 +334,16 @@ async function updateActivity(id, x) {
     return items[index];
   }
 
+  /* =========================================
+     MODO POSTGRESQL
+  ========================================= */
+
   const current = await pool.query(
-    `SELECT * FROM activities WHERE id = $1`,
+    `
+    SELECT *
+    FROM activities
+    WHERE id = $1
+    `,
     [id]
   );
 
@@ -248,17 +354,39 @@ async function updateActivity(id, x) {
   const old = current.rows[0];
 
   const updated = {
-    course: x.course ?? old.course,
-    title: x.title ?? old.title,
-    type: x.type ?? old.type,
-    dueDate: x.dueDate ?? old.due_date,
-    url: x.url ?? old.url,
-    status: x.status ?? old.status,
-    source: x.source ?? old.source,
-    notes: x.notes ?? old.notes,
+    course:
+      x.course ?? old.course,
+
+    title:
+      x.title ?? old.title,
+
+    type:
+      x.type ?? old.type,
+
+    dueDate:
+      x.dueDate ?? old.due_date,
+
+    url:
+      x.url ?? old.url,
+
+    status:
+      x.status ?? old.status,
+
+    source:
+      x.source ?? old.source,
+
+    notes:
+      x.notes ?? old.notes,
+
     reminderMinutes:
       x.reminderMinutes ??
-      old.reminder_minutes
+      old.reminder_minutes,
+
+    priority:
+      normalizePriority(
+        x.priority ??
+        old.priority
+      )
   };
 
   await pool.query(
@@ -273,8 +401,9 @@ async function updateActivity(id, x) {
       status = $6,
       source = $7,
       notes = $8,
-      reminder_minutes = $9
-    WHERE id = $10
+      reminder_minutes = $9,
+      priority = $10
+    WHERE id = $11
     `,
     [
       updated.course,
@@ -286,6 +415,7 @@ async function updateActivity(id, x) {
       updated.source,
       updated.notes,
       updated.reminderMinutes,
+      updated.priority,
       id
     ]
   );
@@ -302,6 +432,7 @@ async function updateActivity(id, x) {
 ========================================= */
 
 async function deleteActivity(id) {
+
   if (!pool) {
     const items = readLocal();
 
@@ -315,7 +446,10 @@ async function deleteActivity(id) {
   }
 
   await pool.query(
-    `DELETE FROM activities WHERE id = $1`,
+    `
+    DELETE FROM activities
+    WHERE id = $1
+    `,
     [id]
   );
 }
@@ -406,12 +540,15 @@ const server = http.createServer(
 
     try {
 
-      /* GET ACTIVIDADES */
+      /* =====================================
+         GET ACTIVIDADES
+      ===================================== */
 
       if (
         req.url === '/api/activities' &&
         req.method === 'GET'
       ) {
+
         const activities =
           await getActivities();
 
@@ -422,7 +559,9 @@ const server = http.createServer(
         );
       }
 
-      /* POST ACTIVIDAD */
+      /* =====================================
+         POST ACTIVIDAD
+      ===================================== */
 
       if (
         req.url === '/api/activities' &&
@@ -455,7 +594,9 @@ const server = http.createServer(
         );
       }
 
-      /* PATCH /api/activities/:id */
+      /* =====================================
+         PATCH /api/activities/:id
+      ===================================== */
 
       const match =
         req.url.match(
@@ -499,7 +640,9 @@ const server = http.createServer(
         );
       }
 
-      /* DELETE /api/activities/:id */
+      /* =====================================
+         DELETE /api/activities/:id
+      ===================================== */
 
       if (
         match &&
@@ -521,7 +664,9 @@ const server = http.createServer(
         return res.end();
       }
 
-      /* ARCHIVOS DEL FRONTEND */
+      /* =====================================
+         ARCHIVOS DEL FRONTEND
+      ===================================== */
 
       let file =
         req.url.split('?')[0];
@@ -587,7 +732,7 @@ const server = http.createServer(
     } catch (error) {
 
       console.error(
-        '❌ Error:',
+        'Error:',
         error
       );
 
@@ -632,13 +777,13 @@ async function start() {
         );
 
         console.log(
-          `🚀 Servidor disponible en http://localhost:${process.env.PORT || 3000}`
+          `Servidor disponible en http://localhost:${process.env.PORT || 3000}`
         );
 
         console.log(
           pool
-            ? '🗄️ Base de datos: PostgreSQL'
-            : '📁 Base de datos: activities.json'
+            ? 'Base de datos: PostgreSQL'
+            : 'Base de datos: activities.json'
         );
       }
     );
@@ -646,7 +791,7 @@ async function start() {
   } catch (error) {
 
     console.error(
-      '❌ No se pudo iniciar el servidor:'
+      'No se pudo iniciar el servidor:'
     );
 
     console.error(
