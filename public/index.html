@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Mi Panel Académico UNEMI</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <span class="eyebrow">UNEMI · PANEL ACADÉMICO</span>
+      <h1>Mi Panel Académico</h1>
+      <p>Actividades automáticas y actividades agregadas manualmente.</p>
+    </div>
+    <div class="top-actions">
+      <button id="notifyBtn" class="btn secondary">🔔 Activar avisos</button>
+      <button id="refreshBtn" class="btn primary">Actualizar</button>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="stats">
+      <article><span>Total</span><strong id="total">0</strong></article>
+      <article><span>Pendientes</span><strong id="pending">0</strong></article>
+      <article><span>Próximas</span><strong id="upcoming">0</strong></article>
+      <article><span>Completadas</span><strong id="done">0</strong></article>
+    </section>
+
+    <section class="toolbar card">
+      <input id="search" type="search" placeholder="Buscar materia, actividad o tipo…">
+      <select id="statusFilter"><option value="all">Todos los estados</option><option>Pendiente</option><option>En progreso</option><option>Completada</option></select>
+      <select id="typeFilter"><option value="all">Todos los tipos</option><option>Tarea</option><option>Test</option><option>Foro</option><option>Actividad</option></select>
+    </section>
+
+    <section class="card">
+      <div class="section-head">
+        <div><h2>Actividades</h2><span id="lastSync">Sin sincronizar</span></div>
+        <button id="addBtn" class="btn primary">＋ Agregar actividad</button>
+      </div>
+      <div id="empty" class="empty">Todavía no hay actividades. Puedes agregarlas manualmente o esperar a que la extensión las detecte.</div>
+      <div class="table-wrap"><table><thead><tr><th>Materia</th><th>Actividad</th><th>Tipo</th><th>Entrega</th><th>Estado</th><th>Acciones</th></tr></thead><tbody id="tbody"></tbody></table></div>
+    </section>
+  </main>
+
+  <div id="activityModal" class="modal">
+    <div class="modal-card">
+      <div class="modal-head"><div><h2>➕ Agregar actividad</h2><p>La actividad quedará guardada en tu panel.</p></div><button id="closeModal" class="close">×</button></div>
+      <form id="activityForm">
+        <div class="form-grid">
+          <label>Materia<input id="course" required placeholder="Ej. Gestión de Proyectos"></label>
+          <label>Tipo<select id="type"><option>Tarea</option><option>Test</option><option>Foro</option><option>Actividad</option></select></label>
+          <label class="full">Título de la actividad<input id="title" required placeholder="Ej. S8 - Trabajo práctico experimental"></label>
+          <label>Fecha y hora de entrega<input id="dueDate" type="datetime-local"></label>
+          <label>Estado<select id="status"><option>Pendiente</option><option>En progreso</option><option>Completada</option></select></label>
+          <label>Notificar antes
+            <select id="reminder">
+              <option value="60">1 hora</option><option value="180">3 horas</option><option value="360">6 horas</option>
+              <option value="720">12 horas</option><option value="1440" selected>1 día</option><option value="2880">2 días</option><option value="10080">1 semana</option>
+            </select>
+          </label>
+          <label>Enlace (opcional)<input id="url" type="url" placeholder="https://..."></label>
+          <label class="full">Descripción / notas<textarea id="notes" rows="3" placeholder="Detalles de la actividad..."></textarea></label>
+        </div>
+        <div class="modal-actions"><button type="button" id="cancelBtn" class="btn secondary">Cancelar</button><button type="submit" class="btn primary">Guardar actividad</button></div>
+      </form>
+    </div>
+  </div>
+
+  <div id="toast" class="toast"></div>
+  <script src="app.js"></script>
+</body>
+</html>

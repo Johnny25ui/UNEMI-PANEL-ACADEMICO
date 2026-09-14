@@ -1,0 +1,13 @@
+{
+  "manifest_version": 3,
+  "name": "UNEMI Panel Sync",
+  "version": "1.0.0",
+  "description": "Detecta nuevas actividades visibles en el Aula Virtual y las envía al panel local.",
+  "permissions": ["storage"],
+  "host_permissions": ["*://*/*"],
+  "content_scripts": [{
+    "matches": ["*://*/*"],
+    "js": ["content.js"],
+    "run_at": "document_idle"
+  }]
+}
