@@ -163,6 +163,9 @@ function updateAdminButton() {
   const addButton =
     document.querySelector('#addBtn');
 
+  const formCard =
+    document.querySelector('#formCard');
+
   if (button) {
 
     if (isAdmin) {
@@ -192,6 +195,16 @@ function updateAdminButton() {
 
     addButton.style.display =
       isAdmin ? '' : 'none';
+  }
+
+  /*
+     Formulario:
+     SOLO visible para administrador
+  */
+
+  if (formCard && !isAdmin) {
+
+    formCard.classList.add('hidden');
   }
 }
 async function loginAdmin() {
@@ -1173,5 +1186,6 @@ setInterval(
   checkReminders,
   30000
 );
+
 
 
