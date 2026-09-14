@@ -160,28 +160,40 @@ function updateAdminButton() {
   const button =
     document.querySelector('#adminBtn');
 
-  if (!button) {
-    return;
+  const addButton =
+    document.querySelector('#addBtn');
+
+  if (button) {
+
+    if (isAdmin) {
+
+      button.textContent =
+        '🔐 Administrador activo';
+
+      button.title =
+        'Cerrar sesión de administrador';
+
+    } else {
+
+      button.textContent =
+        '🔑 Administrador';
+
+      button.title =
+        'Iniciar sesión de administrador';
+    }
   }
 
-  if (isAdmin) {
+  /*
+     Agregar actividad:
+     SOLO visible para administrador
+  */
 
-    button.textContent =
-      '🔐 Administrador activo';
+  if (addButton) {
 
-    button.title =
-      'Cerrar sesión de administrador';
-
-  } else {
-
-    button.textContent =
-      '🔑 Administrador';
-
-    button.title =
-      'Iniciar sesión de administrador';
+    addButton.style.display =
+      isAdmin ? '' : 'none';
   }
 }
-
 async function loginAdmin() {
 
   const key =
@@ -903,6 +915,13 @@ if (addBtn) {
   addBtn.onclick =
     async () => {
 
+      if (!isAdmin) {
+        toast(
+          'Solo el administrador puede agregar actividades'
+        );
+        return;
+      }
+
       await requestNotifications();
 
       openModal();
@@ -1154,3 +1173,5 @@ setInterval(
   checkReminders,
   30000
 );
+
+

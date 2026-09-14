@@ -614,6 +614,17 @@ const server = http.createServer(
         req.method === 'POST'
       ) {
 
+        if (!isAdmin(req)) {
+          return send(
+            res,
+            403,
+            {
+              error:
+                'No tienes permisos de administrador'
+            }
+          );
+        }
+
         const x = await body(req);
 
         if (
@@ -653,6 +664,17 @@ const server = http.createServer(
         match &&
         req.method === 'PATCH'
       ) {
+
+        if (!isAdmin(req)) {
+          return send(
+            res,
+            403,
+            {
+              error:
+                'No tienes permisos de administrador'
+            }
+          );
+        }
 
         const id =
           decodeURIComponent(
@@ -867,3 +889,4 @@ async function start() {
 }
 
 start();
+
