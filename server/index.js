@@ -25,6 +25,22 @@ if (!fs.existsSync(DATA_FILE)) {
 
 const DATABASE_URL = process.env.DATABASE_URL || '';
 
+/* =========================================
+   ADMINISTRADOR
+========================================= */
+
+const ADMIN_KEY = process.env.ADMIN_KEY || '';
+
+function isAdmin(req) {
+  const key = req.headers['x-admin-key'];
+
+  return Boolean(
+    ADMIN_KEY &&
+    key &&
+    key === ADMIN_KEY
+  );
+}
+
 const pool = DATABASE_URL
   ? new Pool({
       connectionString: DATABASE_URL,
@@ -475,7 +491,7 @@ const headers = {
   'Access-Control-Allow-Methods':
     'GET,POST,PATCH,DELETE,OPTIONS',
   'Access-Control-Allow-Headers':
-    'Content-Type'
+    'Content-Type, X-Admin-Key'
 };
 
 /* =========================================
@@ -539,6 +555,36 @@ const server = http.createServer(
     }
 
     try {
+
+      /* =====================================
+         COMPROBAR ADMINISTRADOR
+      ===================================== */
+
+      if (
+        req.url === '/api/admin/check' &&
+        req.method === 'POST'
+      ) {
+
+        if (!isAdmin(req)) {
+          return send(
+            res,
+            403,
+            {
+              admin: false,
+              error:
+                'Clave de administrador incorrecta'
+            }
+          );
+        }
+
+        return send(
+          res,
+          200,
+          {
+            admin: true
+          }
+        );
+      }
 
       /* =====================================
          GET ACTIVIDADES
@@ -642,12 +688,24 @@ const server = http.createServer(
 
       /* =====================================
          DELETE /api/activities/:id
+         SOLO ADMINISTRADOR
       ===================================== */
 
       if (
         match &&
         req.method === 'DELETE'
       ) {
+
+        if (!isAdmin(req)) {
+          return send(
+            res,
+            403,
+            {
+              error:
+                'No tienes permisos de administrador'
+            }
+          );
+        }
 
         const id =
           decodeURIComponent(
@@ -759,6 +817,12 @@ async function start() {
   try {
 
     await initDatabase();
+
+    console.log(
+      ADMIN_KEY
+        ? 'Administrador: ADMIN_KEY configurada.'
+        : 'Administrador: ADMIN_KEY NO configurada.'
+    );
 
     server.listen(
       process.env.PORT || 3000,

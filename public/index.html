@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="es">
 
 <head>
@@ -35,6 +35,13 @@
     </div>
 
     <div class="top-actions">
+
+      <button
+        id="adminBtn"
+        class="btn secondary"
+      >
+        🔑 Administrador
+      </button>
 
       <button
         id="notifyBtn"
@@ -178,15 +185,9 @@
       </div>
 
 
-      <div
-        id="empty"
-        class="empty"
-      >
-        Todavía no hay actividades.
-        Puedes agregarlas manualmente o esperar
-        a que la extensión las detecte.
-      </div>
-
+      <!-- =====================================
+           TABLA
+      ====================================== -->
 
       <div class="table-wrap">
 
@@ -209,15 +210,15 @@
               </th>
 
               <th>
-                Prioridad
-              </th>
-
-              <th>
-                Entrega
+                Fecha de entrega
               </th>
 
               <th>
                 Estado
+              </th>
+
+              <th>
+                Prioridad
               </th>
 
               <th>
@@ -228,7 +229,9 @@
 
           </thead>
 
-          <tbody id="tbody"></tbody>
+          <tbody id="activitiesBody">
+
+          </tbody>
 
         </table>
 
@@ -236,55 +239,49 @@
 
     </section>
 
-  </main>
 
+    <!-- =====================================
+         FORMULARIO
+    ====================================== -->
 
-  <!-- =====================================
-       MODAL AGREGAR ACTIVIDAD
-  ====================================== -->
+    <section
+      id="formCard"
+      class="card hidden"
+    >
 
-  <div
-    id="activityModal"
-    class="modal"
-  >
-
-    <div class="modal-card">
-
-
-      <!-- CABECERA DEL MODAL -->
-
-      <div class="modal-head">
+      <div class="section-head">
 
         <div>
 
-          <h2>
-            ➕ Agregar actividad
+          <h2 id="formTitle">
+            Agregar actividad
           </h2>
 
-          <p>
-            La actividad quedará guardada en tu panel.
-          </p>
+          <span>
+            Registra una actividad manualmente.
+          </span>
 
         </div>
 
         <button
-          id="closeModal"
-          class="close"
+          id="closeFormBtn"
+          class="btn secondary"
         >
-          ×
+          Cerrar
         </button>
 
       </div>
 
 
-      <!-- FORMULARIO -->
-
       <form id="activityForm">
 
+        <input
+          id="activityId"
+          type="hidden"
+        >
+
+
         <div class="form-grid">
-
-
-          <!-- MATERIA -->
 
           <label>
 
@@ -292,14 +289,25 @@
 
             <input
               id="course"
+              type="text"
               required
-              placeholder="Ej. Gestión de Proyectos"
             >
 
           </label>
 
 
-          <!-- TIPO -->
+          <label>
+
+            Actividad
+
+            <input
+              id="title"
+              type="text"
+              required
+            >
+
+          </label>
+
 
           <label>
 
@@ -328,26 +336,9 @@
           </label>
 
 
-          <!-- TÍTULO -->
-
-          <label class="full">
-
-            Título de la actividad
-
-            <input
-              id="title"
-              required
-              placeholder="Ej. S8 - Trabajo práctico experimental"
-            >
-
-          </label>
-
-
-          <!-- FECHA -->
-
           <label>
 
-            Fecha y hora de entrega
+            Fecha de entrega
 
             <input
               id="dueDate"
@@ -356,8 +347,6 @@
 
           </label>
 
-
-          <!-- ESTADO -->
 
           <label>
 
@@ -381,8 +370,6 @@
 
           </label>
 
-
-          <!-- PRIORIDAD -->
 
           <label>
 
@@ -414,55 +401,9 @@
           </label>
 
 
-          <!-- RECORDATORIO -->
-
           <label>
 
-            Notificar antes
-
-            <select id="reminder">
-
-              <option value="60">
-                1 hora
-              </option>
-
-              <option value="180">
-                3 horas
-              </option>
-
-              <option value="360">
-                6 horas
-              </option>
-
-              <option value="720">
-                12 horas
-              </option>
-
-              <option
-                value="1440"
-                selected
-              >
-                1 día
-              </option>
-
-              <option value="2880">
-                2 días
-              </option>
-
-              <option value="10080">
-                1 semana
-              </option>
-
-            </select>
-
-          </label>
-
-
-          <!-- ENLACE -->
-
-          <label>
-
-            Enlace (opcional)
+            Enlace
 
             <input
               id="url"
@@ -473,16 +414,47 @@
           </label>
 
 
-          <!-- NOTAS -->
+          <label>
+
+            Recordatorio
+
+            <select id="reminderMinutes">
+
+              <option value="15">
+                15 minutos antes
+              </option>
+
+              <option value="30">
+                30 minutos antes
+              </option>
+
+              <option value="60">
+                1 hora antes
+              </option>
+
+              <option
+                value="1440"
+                selected
+              >
+                1 día antes
+              </option>
+
+              <option value="2880">
+                2 días antes
+              </option>
+
+            </select>
+
+          </label>
+
 
           <label class="full">
 
-            Descripción / notas
+            Notas
 
             <textarea
               id="notes"
-              rows="3"
-              placeholder="Detalles de la actividad..."
+              rows="4"
             ></textarea>
 
           </label>
@@ -490,9 +462,7 @@
         </div>
 
 
-        <!-- BOTONES -->
-
-        <div class="modal-actions">
+        <div class="form-actions">
 
           <button
             type="button"
@@ -513,13 +483,13 @@
 
       </form>
 
-    </div>
+    </section>
 
-  </div>
+  </main>
 
 
   <!-- =====================================
-       NOTIFICACIÓN
+       TOAST
   ====================================== -->
 
   <div
@@ -528,7 +498,9 @@
   ></div>
 
 
-  <!-- JAVASCRIPT -->
+  <!-- =====================================
+       JAVASCRIPT
+  ====================================== -->
 
   <script src="app.js"></script>
 

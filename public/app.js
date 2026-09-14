@@ -1,4 +1,10 @@
-let activities = [];
+﻿let activities = [];
+
+let isAdmin =
+  sessionStorage.getItem('unemi-admin') === 'true';
+
+let adminKey =
+  sessionStorage.getItem('unemi-admin-key') || '';
 
 let notified = new Set(
   JSON.parse(
@@ -15,8 +21,9 @@ const $ = s => document.querySelector(s);
 const toast = m => {
   const t = $('#toast');
 
-  t.textContent = m;
+  if (!t) return;
 
+  t.textContent = m;
   t.classList.add('show');
 
   setTimeout(
@@ -110,13 +117,9 @@ function sortActivities(items) {
         normalizePriority(b.priority)
       ];
 
-    /* Primero prioridad */
-
     if (priorityA !== priorityB) {
       return priorityA - priorityB;
     }
-
-    /* Después fecha de entrega */
 
     const dateA =
       a.dueDate
@@ -140,6 +143,144 @@ function sortActivities(items) {
 
     return validA - validB;
   });
+}
+
+/* =========================================
+   ADMINISTRADOR
+========================================= */
+
+function getAdminKey() {
+  return sessionStorage.getItem(
+    'unemi-admin-key'
+  ) || '';
+}
+
+function updateAdminButton() {
+
+  const button =
+    document.querySelector('#adminBtn');
+
+  if (!button) {
+    return;
+  }
+
+  if (isAdmin) {
+
+    button.textContent =
+      '🔐 Administrador activo';
+
+    button.title =
+      'Cerrar sesión de administrador';
+
+  } else {
+
+    button.textContent =
+      '🔑 Administrador';
+
+    button.title =
+      'Iniciar sesión de administrador';
+  }
+}
+
+async function loginAdmin() {
+
+  const key =
+    prompt(
+      'Ingrese la clave de administrador:'
+    );
+
+  if (!key) {
+    return;
+  }
+
+  try {
+
+    const response =
+      await fetch(
+        '/api/admin/check',
+        {
+          method: 'POST',
+
+          headers: {
+            'Content-Type':
+              'application/json',
+
+            'X-Admin-Key':
+              key
+          }
+        }
+      );
+
+    const data =
+      await response
+        .json()
+        .catch(
+          () => ({})
+        );
+
+    if (
+      !response.ok ||
+      !data.admin
+    ) {
+
+      toast(
+        '❌ Clave de administrador incorrecta'
+      );
+
+      return;
+    }
+
+    isAdmin = true;
+    adminKey = key;
+
+    sessionStorage.setItem(
+      'unemi-admin',
+      'true'
+    );
+
+    sessionStorage.setItem(
+      'unemi-admin-key',
+      key
+    );
+
+    updateAdminButton();
+
+    render();
+
+    toast(
+      '✅ Modo administrador activado'
+    );
+
+  } catch (error) {
+
+    console.error(error);
+
+    toast(
+      '❌ No se pudo validar el administrador'
+    );
+  }
+}
+
+function logoutAdmin() {
+
+  isAdmin = false;
+  adminKey = '';
+
+  sessionStorage.removeItem(
+    'unemi-admin'
+  );
+
+  sessionStorage.removeItem(
+    'unemi-admin-key'
+  );
+
+  updateAdminButton();
+
+  render();
+
+  toast(
+    '🔒 Sesión de administrador cerrada'
+  );
 }
 
 /* =========================================
@@ -186,9 +327,7 @@ function notify(title, body) {
     new Notification(
       title,
       {
-        body,
-        icon:
-          'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">📚</text></svg>'
+        body
       }
     );
   }
@@ -258,17 +397,33 @@ function checkReminders() {
 
 function render() {
 
+  const searchInput =
+    $('#search');
+
+  const statusFilter =
+    $('#statusFilter');
+
+  const typeFilter =
+    $('#typeFilter');
+
+  if (
+    !searchInput ||
+    !statusFilter ||
+    !typeFilter
+  ) {
+    return;
+  }
+
   const q =
-    $('#search')
-      .value
+    searchInput.value
       .toLowerCase()
       .trim();
 
   const sf =
-    $('#statusFilter').value;
+    statusFilter.value;
 
   const tf =
-    $('#typeFilter').value;
+    typeFilter.value;
 
   const filtered =
     activities.filter(a => {
@@ -298,15 +453,11 @@ function render() {
       );
     });
 
-  /* =========================================
-     ORDEN FINAL
-  ========================================= */
-
   const sorted =
     sortActivities(filtered);
 
   /* =========================================
-     ESTADISTICAS
+     ESTADÍSTICAS
   ========================================= */
 
   $('#total').textContent =
@@ -346,25 +497,36 @@ function render() {
     }).length;
 
   /* =========================================
-     MENSAJE VACIO
-  ========================================= */
-
-  $('#empty').style.display =
-    sorted.length
-      ? 'none'
-      : 'block';
-
-  /* =========================================
      TABLA
   ========================================= */
 
-  $('#tbody').innerHTML =
+  const tbody =
+    $('#activitiesBody');
+
+  if (!tbody) {
+    return;
+  }
+
+  tbody.innerHTML =
     sorted.map(a => {
 
       const priority =
         normalizePriority(
           a.priority
         );
+
+      const deleteButton =
+        isAdmin &&
+        a.source === 'Manual'
+          ? `
+            <button
+              class="action danger"
+              data-delete="${escAttr(a.id)}"
+            >
+              Eliminar
+            </button>
+          `
+          : '';
 
       return `
         <tr>
@@ -392,14 +554,6 @@ function render() {
           </td>
 
           <td>
-            <span class="badge">
-              ${esc(
-                priorityLabel[priority]
-              )}
-            </span>
-          </td>
-
-          <td>
             ${formatDate(a.dueDate)}
           </td>
 
@@ -414,6 +568,14 @@ function render() {
               }"
             >
               ${esc(a.status)}
+            </span>
+          </td>
+
+          <td>
+            <span class="badge">
+              ${esc(
+                priorityLabel[priority]
+              )}
             </span>
           </td>
 
@@ -441,18 +603,7 @@ function render() {
               Cambiar
             </button>
 
-            ${
-              a.source === 'Manual'
-                ? `
-                  <button
-                    class="action danger"
-                    data-delete="${escAttr(a.id)}"
-                  >
-                    Eliminar
-                  </button>
-                `
-                : ''
-            }
+            ${deleteButton}
 
           </td>
 
@@ -467,46 +618,67 @@ function render() {
 
   document
     .querySelectorAll('[data-id]')
-    .forEach(b => {
+    .forEach(button => {
 
-      b.onclick = async () => {
+      button.onclick =
+        async () => {
 
-        const a =
-          activities.find(
-            x =>
-              x.id === b.dataset.id
-          );
+          const a =
+            activities.find(
+              x =>
+                String(x.id) ===
+                String(button.dataset.id)
+            );
 
-        if (!a) {
-          return;
-        }
-
-        const next =
-          a.status === 'Pendiente'
-            ? 'En progreso'
-            : a.status === 'En progreso'
-              ? 'Completada'
-              : 'Pendiente';
-
-        await fetch(
-          '/api/activities/' +
-          encodeURIComponent(a.id),
-          {
-            method: 'PATCH',
-
-            headers: {
-              'Content-Type':
-                'application/json'
-            },
-
-            body: JSON.stringify({
-              status: next
-            })
+          if (!a) {
+            return;
           }
-        );
 
-        await load(false);
-      };
+          const next =
+            a.status === 'Pendiente'
+              ? 'En progreso'
+              : a.status === 'En progreso'
+                ? 'Completada'
+                : 'Pendiente';
+
+          try {
+
+            const response =
+              await fetch(
+                '/api/activities/' +
+                encodeURIComponent(a.id),
+                {
+                  method: 'PATCH',
+
+                  headers: {
+                    'Content-Type':
+                      'application/json'
+                  },
+
+                  body:
+                    JSON.stringify({
+                      status: next
+                    })
+                }
+              );
+
+            if (!response.ok) {
+              throw new Error(
+                'No se pudo actualizar'
+              );
+            }
+
+            await load(false);
+
+          } catch (error) {
+
+            console.error(error);
+
+            toast(
+              '❌ No se pudo cambiar el estado'
+            );
+          }
+        };
     });
 
   /* =========================================
@@ -515,34 +687,94 @@ function render() {
 
   document
     .querySelectorAll('[data-delete]')
-    .forEach(b => {
+    .forEach(button => {
 
-      b.onclick = async () => {
+      button.onclick =
+        async () => {
 
-        if (
-          !confirm(
-            '¿Eliminar esta actividad manual?'
-          )
-        ) {
-          return;
-        }
+          if (!isAdmin) {
 
-        await fetch(
-          '/api/activities/' +
-          encodeURIComponent(
-            b.dataset.delete
-          ),
-          {
-            method: 'DELETE'
+            toast(
+              '🔒 Necesitas permisos de administrador'
+            );
+
+            return;
           }
-        );
 
-        await load(false);
+          if (
+            !confirm(
+              '¿Eliminar esta actividad manual?'
+            )
+          ) {
+            return;
+          }
 
-        toast(
-          'Actividad eliminada'
-        );
-      };
+          try {
+
+            const response =
+              await fetch(
+                '/api/activities/' +
+                encodeURIComponent(
+                  button.dataset.delete
+                ),
+                {
+                  method: 'DELETE',
+
+                  headers: {
+                    'X-Admin-Key':
+                      getAdminKey()
+                  }
+                }
+              );
+
+            if (
+              response.status === 401 ||
+              response.status === 403
+            ) {
+
+              logoutAdmin();
+
+              toast(
+                '🔒 Sesión de administrador inválida'
+              );
+
+              return;
+            }
+
+            if (!response.ok) {
+
+              const data =
+                await response
+                  .json()
+                  .catch(
+                    () => ({})
+                  );
+
+              throw new Error(
+                data.error ||
+                'No se pudo eliminar'
+              );
+            }
+
+            await load(false);
+
+            toast(
+              '✅ Actividad eliminada'
+            );
+
+          } catch (error) {
+
+            console.error(error);
+
+            toast(
+              '❌ ' +
+              (
+                error.message ||
+                'No se pudo eliminar'
+              )
+            );
+          }
+        };
     });
 }
 
@@ -556,19 +788,20 @@ async function load(
 
   try {
 
-    const r =
+    const response =
       await fetch(
         '/api/activities'
       );
 
-    if (!r.ok) {
+    if (!response.ok) {
+
       throw new Error(
         'No se pudieron cargar las actividades'
       );
     }
 
     activities =
-      await r.json();
+      await response.json();
 
     activities =
       activities.map(a => ({
@@ -581,16 +814,23 @@ async function load(
 
     render();
 
-    $('#lastSync').textContent =
-      'Última sincronización: ' +
-      new Date()
-        .toLocaleTimeString(
-          'es-EC'
-        );
+    const lastSync =
+      $('#lastSync');
+
+    if (lastSync) {
+
+      lastSync.textContent =
+        'Última sincronización: ' +
+        new Date()
+          .toLocaleTimeString(
+            'es-EC'
+          );
+    }
 
     checkReminders();
 
     if (showToast) {
+
       toast(
         'Panel actualizado'
       );
@@ -601,71 +841,106 @@ async function load(
     console.error(error);
 
     toast(
-      'No se pudieron cargar las actividades'
+      '❌ No se pudieron cargar las actividades'
     );
   }
 }
 
 /* =========================================
-   MODAL
+   FORMULARIO
 ========================================= */
 
 function openModal() {
 
-  $('#activityModal')
-    .classList
-    .add('show');
+  const formCard =
+    $('#formCard');
 
-  $('#course').focus();
+  if (!formCard) {
+    return;
+  }
+
+  formCard.classList.remove(
+    'hidden'
+  );
+
+  const course =
+    $('#course');
+
+  if (course) {
+    course.focus();
+  }
 }
 
 function closeModal() {
 
-  $('#activityModal')
-    .classList
-    .remove('show');
+  const formCard =
+    $('#formCard');
 
-  $('#activityForm').reset();
+  if (formCard) {
+
+    formCard.classList.add(
+      'hidden'
+    );
+  }
+
+  const form =
+    $('#activityForm');
+
+  if (form) {
+    form.reset();
+  }
 }
 
 /* =========================================
-   BOTONES
+   BOTÓN AGREGAR
 ========================================= */
 
-$('#addBtn').onclick =
-  async () => {
+const addBtn =
+  $('#addBtn');
 
-    await requestNotifications();
+if (addBtn) {
 
-    openModal();
-  };
+  addBtn.onclick =
+    async () => {
 
-$('#closeModal').onclick =
-  closeModal;
+      await requestNotifications();
 
-$('#cancelBtn').onclick =
-  closeModal;
+      openModal();
+    };
+}
 
-$('#activityModal')
-  .addEventListener(
-    'click',
-    e => {
+/* =========================================
+   CERRAR FORMULARIO
+========================================= */
 
-      if (
-        e.target.id ===
-        'activityModal'
-      ) {
-        closeModal();
-      }
-    }
-  );
+const closeFormBtn =
+  $('#closeFormBtn');
+
+if (closeFormBtn) {
+
+  closeFormBtn.onclick =
+    closeModal;
+}
+
+const cancelBtn =
+  $('#cancelBtn');
+
+if (cancelBtn) {
+
+  cancelBtn.onclick =
+    closeModal;
+}
 
 /* =========================================
    FORMULARIO
 ========================================= */
 
-$('#activityForm')
-  .addEventListener(
+const activityForm =
+  $('#activityForm');
+
+if (activityForm) {
+
+  activityForm.addEventListener(
     'submit',
     async e => {
 
@@ -714,55 +989,67 @@ $('#activityForm')
 
         reminderMinutes:
           Number(
-            $('#reminder').value
+            $('#reminderMinutes').value
           ),
 
         source:
           'Manual'
       };
 
-      const r =
-        await fetch(
-          '/api/activities',
-          {
-            method: 'POST',
+      try {
 
-            headers: {
-              'Content-Type':
-                'application/json'
-            },
+        const response =
+          await fetch(
+            '/api/activities',
+            {
+              method: 'POST',
 
-            body:
-              JSON.stringify(data)
-          }
-        );
+              headers: {
+                'Content-Type':
+                  'application/json'
+              },
 
-      if (!r.ok) {
+              body:
+                JSON.stringify(data)
+            }
+          );
 
-        const x =
-          await r
-            .json()
-            .catch(
-              () => ({})
-            );
+        if (!response.ok) {
+
+          const dataError =
+            await response
+              .json()
+              .catch(
+                () => ({})
+              );
+
+          toast(
+            dataError.error ||
+            'No se pudo guardar'
+          );
+
+          return;
+        }
+
+        closeModal();
+
+        await load(false);
 
         toast(
-          x.error ||
-          'No se pudo guardar'
+          '✅ Actividad guardada correctamente'
         );
 
-        return;
+      } catch (error) {
+
+        console.error(error);
+
+        toast(
+          '❌ No se pudo guardar la actividad'
+        );
       }
-
-      closeModal();
-
-      await load(false);
-
-      toast(
-        '✅ Actividad guardada correctamente'
-      );
     }
   );
+}
 
 /* =========================================
    FILTROS
@@ -774,40 +1061,87 @@ $('#activityForm')
   'typeFilter'
 ].forEach(id => {
 
-  $('#' + id)
-    .addEventListener(
-      'input',
-      render
-    );
+  const element =
+    $('#' + id);
+
+  if (!element) {
+    return;
+  }
+
+  element.addEventListener(
+    'input',
+    render
+  );
+
+  element.addEventListener(
+    'change',
+    render
+  );
 });
 
 /* =========================================
    ACTUALIZAR
 ========================================= */
 
-$('#refreshBtn').onclick =
-  () => load(true);
+const refreshBtn =
+  $('#refreshBtn');
+
+if (refreshBtn) {
+
+  refreshBtn.onclick =
+    () => load(true);
+}
 
 /* =========================================
    NOTIFICACIONES
 ========================================= */
 
-$('#notifyBtn').onclick =
-  async () => {
+const notifyBtn =
+  $('#notifyBtn');
 
-    const ok =
-      await requestNotifications();
+if (notifyBtn) {
 
-    toast(
-      ok
-        ? '🔔 Notificaciones activadas'
-        : 'El navegador no permite notificaciones'
-    );
-  };
+  notifyBtn.onclick =
+    async () => {
+
+      const ok =
+        await requestNotifications();
+
+      toast(
+        ok
+          ? '🔔 Notificaciones activadas'
+          : 'El navegador no permite notificaciones'
+      );
+    };
+}
+
+/* =========================================
+   BOTÓN ADMINISTRADOR
+========================================= */
+
+const adminBtn =
+  $('#adminBtn');
+
+if (adminBtn) {
+
+  updateAdminButton();
+
+  adminBtn.onclick =
+    () => {
+
+      if (isAdmin) {
+        logoutAdmin();
+      } else {
+        loginAdmin();
+      }
+    };
+}
 
 /* =========================================
    INICIO
 ========================================= */
+
+updateAdminButton();
 
 load(false);
 
