@@ -621,12 +621,18 @@ function render() {
                 : ''
             }
 
-            <button
-              class="action"
-              data-id="${escAttr(a.id)}"
-            >
-              Cambiar
-            </button>
+            ${
+              isAdmin
+                ? `
+                  <button
+                    class="action"
+                    data-id="${escAttr(a.id)}"
+                  >
+                    Cambiar
+                  </button>
+                `
+                : ''
+            }
 
             ${deleteButton}
 
@@ -677,7 +683,10 @@ function render() {
 
                   headers: {
                     'Content-Type':
-                      'application/json'
+                      'application/json',
+
+                    'X-Admin-Key':
+                      getAdminKey()
                   },
 
                   body:
@@ -1038,7 +1047,10 @@ if (activityForm) {
 
               headers: {
                 'Content-Type':
-                  'application/json'
+                  'application/json',
+
+                'X-Admin-Key':
+                  getAdminKey()
               },
 
               body:
@@ -1186,6 +1198,9 @@ setInterval(
   checkReminders,
   30000
 );
+
+
+
 
 
 
