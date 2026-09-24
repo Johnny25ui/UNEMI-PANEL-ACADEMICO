@@ -1,4 +1,4 @@
-﻿let activities = [];
+let activities = [];
 
 let isAdmin =
   sessionStorage.getItem('unemi-admin') === 'true';
@@ -420,396 +420,324 @@ function checkReminders() {
    RENDERIZAR
 ========================================= */
 
+function startOfDay(value = new Date()) {
+  const d = new Date(value);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+function endOfDay(value = new Date()) {
+  const d = new Date(value);
+  d.setHours(23, 59, 59, 999);
+  return d;
+}
+
+function isOverdue(a, now = new Date()) {
+  if (!a.dueDate || a.status === 'Completada') return false;
+  const due = new Date(a.dueDate);
+  return !Number.isNaN(due.getTime()) && due.getTime() < now.getTime();
+}
+
+function matchesDateFilter(a, filter, now = new Date()) {
+  if (filter === 'all') return true;
+  if (!a.dueDate) return false;
+
+  const due = new Date(a.dueDate);
+  if (Number.isNaN(due.getTime())) return false;
+
+  const todayStart = startOfDay(now);
+  const todayEnd = endOfDay(now);
+  const dueTime = due.getTime();
+
+  if (filter === 'overdue') {
+    return dueTime < now.getTime() && a.status !== 'Completada';
+  }
+
+  if (filter === 'today') {
+    return dueTime >= todayStart.getTime() && dueTime <= todayEnd.getTime();
+  }
+
+  if (filter === '7days' || filter === '30days') {
+    const days = filter === '7days' ? 7 : 30;
+    const limit = endOfDay(new Date(todayStart.getTime() + days * 864e5));
+    return dueTime >= todayStart.getTime() && dueTime <= limit.getTime();
+  }
+
+  if (filter === 'month') {
+    return due.getFullYear() === now.getFullYear() && due.getMonth() === now.getMonth();
+  }
+
+  if (filter === 'future') {
+    return dueTime >= todayStart.getTime();
+  }
+
+  return true;
+}
+
+function getQuickFilter() {
+  return document.querySelector('.quick-filter.active')?.dataset.quick || 'all';
+}
+
+function matchesQuickFilter(a, quick, now = new Date()) {
+  if (quick === 'all') return true;
+  if (quick === 'done') return a.status === 'Completada';
+  if (quick === 'overdue') return isOverdue(a, now);
+
+  if (quick === 'upcoming') {
+    if (!a.dueDate || a.status === 'Completada') return false;
+    const due = new Date(a.dueDate).getTime();
+    const limit = endOfDay(new Date(startOfDay(now).getTime() + 7 * 864e5)).getTime();
+    return Number.isFinite(due) && due >= now.getTime() && due <= limit;
+  }
+
+  return true;
+}
+
+function populateCourseFilter() {
+  const select = $('#courseFilter');
+  if (!select) return;
+
+  const previous = select.value || 'all';
+  const courses = [...new Set(
+    activities
+      .map(a => String(a.course || '').trim())
+      .filter(Boolean)
+  )].sort((a, b) => a.localeCompare(b, 'es', { sensitivity: 'base' }));
+
+  select.innerHTML = '<option value="all">Todas las materias</option>' +
+    courses.map(course => `<option value="${escAttr(course)}">${esc(course)}</option>`).join('');
+
+  if (previous === 'all' || courses.includes(previous)) {
+    select.value = previous;
+  }
+}
+
 function render() {
 
-  const searchInput =
-    $('#search');
+  const searchInput = $('#search');
+  const courseFilter = $('#courseFilter');
+  const statusFilter = $('#statusFilter');
+  const typeFilter = $('#typeFilter');
+  const dateFilter = $('#dateFilter');
+  const priorityFilter = $('#priorityFilter');
 
-  const statusFilter =
-    $('#statusFilter');
-
-  const typeFilter =
-    $('#typeFilter');
-
-  if (
-    !searchInput ||
-    !statusFilter ||
-    !typeFilter
-  ) {
+  if (!searchInput || !courseFilter || !statusFilter || !typeFilter || !dateFilter || !priorityFilter) {
     return;
   }
 
-  const q =
-    searchInput.value
+  const q = searchInput.value.toLowerCase().trim();
+  const cf = courseFilter.value;
+  const sf = statusFilter.value;
+  const tf = typeFilter.value;
+  const df = dateFilter.value;
+  const pf = priorityFilter.value;
+  const quick = getQuickFilter();
+  const now = new Date();
+
+  const filtered = activities.filter(a => {
+    const priority = normalizePriority(a.priority);
+
+    const matchesSearch = `${a.course} ${a.title} ${a.type} ${priority}`
       .toLowerCase()
-      .trim();
+      .includes(q);
 
-  const sf =
-    statusFilter.value;
+    const matchesCourse = cf === 'all' || a.course === cf;
+    const matchesStatus = sf === 'all' || a.status === sf;
+    const matchesType = tf === 'all' || a.type === tf;
+    const matchesPriority = pf === 'all' || priority === pf;
 
-  const tf =
-    typeFilter.value;
+    return matchesSearch &&
+      matchesCourse &&
+      matchesStatus &&
+      matchesType &&
+      matchesPriority &&
+      matchesDateFilter(a, df, now) &&
+      matchesQuickFilter(a, quick, now);
+  });
 
-  const filtered =
-    activities.filter(a => {
-
-      const priority =
-        normalizePriority(
-          a.priority
-        );
-
-      const matchesSearch =
-        `${a.course} ${a.title} ${a.type} ${priority}`
-          .toLowerCase()
-          .includes(q);
-
-      const matchesStatus =
-        sf === 'all' ||
-        a.status === sf;
-
-      const matchesType =
-        tf === 'all' ||
-        a.type === tf;
-
-      return (
-        matchesSearch &&
-        matchesStatus &&
-        matchesType
-      );
-    });
-
-  const sorted =
-    sortActivities(filtered);
+  const sorted = sortActivities(filtered);
 
   /* =========================================
-     ESTADÍSTICAS
+     ESTADÍSTICAS DEL RESULTADO FILTRADO
   ========================================= */
 
-  $('#total').textContent =
-    activities.length;
+  $('#total').textContent = filtered.length;
+  $('#pending').textContent = filtered.filter(a => a.status === 'Pendiente').length;
+  $('#done').textContent = filtered.filter(a => a.status === 'Completada').length;
 
-  $('#pending').textContent =
-    activities.filter(
-      a =>
-        a.status === 'Pendiente'
-    ).length;
+  const nowMs = now.getTime();
+  const week = endOfDay(new Date(startOfDay(now).getTime() + 7 * 864e5)).getTime();
 
-  $('#done').textContent =
-    activities.filter(
-      a =>
-        a.status === 'Completada'
-    ).length;
+  $('#upcoming').textContent = filtered.filter(a => {
+    const t = new Date(a.dueDate).getTime();
+    return Number.isFinite(t) && t >= nowMs && t <= week && a.status !== 'Completada';
+  }).length;
 
-  const now = Date.now();
+  const summary = $('#filterSummary');
+  if (summary) {
+    const active = [];
+    if (cf !== 'all') active.push(cf);
+    if (sf !== 'all') active.push(sf);
+    if (tf !== 'all') active.push(tf);
+    if (df !== 'all') active.push(dateFilter.options[dateFilter.selectedIndex].text);
+    if (pf !== 'all') active.push(`Prioridad ${pf}`);
+    if (quick !== 'all') {
+      const label = document.querySelector('.quick-filter.active')?.textContent?.trim();
+      if (label) active.push(label);
+    }
+    if (q) active.push(`“${searchInput.value.trim()}”`);
 
-  const week =
-    now + 7 * 864e5;
-
-  $('#upcoming').textContent =
-    activities.filter(a => {
-
-      const t =
-        new Date(
-          a.dueDate
-        ).getTime();
-
-      return (
-        Number.isFinite(t) &&
-        t >= now &&
-        t <= week &&
-        a.status !== 'Completada'
-      );
-    }).length;
+    summary.textContent = active.length
+      ? `${filtered.length} de ${activities.length} actividades · ${active.join(' · ')}`
+      : `Mostrando las ${activities.length} actividades`;
+  }
 
   /* =========================================
      TABLA
   ========================================= */
 
-  const tbody =
-    $('#activitiesBody');
+  const tbody = $('#activitiesBody');
+  if (!tbody) return;
 
-  if (!tbody) {
+  if (!sorted.length) {
+    tbody.innerHTML = `
+      <tr>
+        <td class="empty" colspan="7">
+          No hay actividades que coincidan con los filtros seleccionados.
+        </td>
+      </tr>
+    `;
     return;
   }
 
-  tbody.innerHTML =
-    sorted.map(a => {
+  tbody.innerHTML = sorted.map(a => {
+    const priority = normalizePriority(a.priority);
+    const overdue = isOverdue(a, now);
 
-      const priority =
-        normalizePriority(
-          a.priority
-        );
+    const deleteButton = isAdmin && a.source === 'Manual'
+      ? `
+        <button class="action danger" data-delete="${escAttr(a.id)}">
+          Eliminar
+        </button>
+      `
+      : '';
 
-      const deleteButton =
-        isAdmin &&
-        a.source === 'Manual'
-          ? `
-            <button
-              class="action danger"
-              data-delete="${escAttr(a.id)}"
-            >
-              Eliminar
-            </button>
-          `
-          : '';
+    return `
+      <tr class="${overdue ? 'overdue-row' : ''}">
+        <td class="course-cell">
+          <strong>${esc(a.course)}</strong>
+        </td>
 
-      return `
-        <tr>
+        <td class="activity-cell">
+          ${esc(a.title)}
+          ${a.source === 'Manual' ? '<span class="manual-tag">Manual</span>' : ''}
+          ${overdue ? '<span class="overdue-tag">Vencida</span>' : ''}
+        </td>
 
-          <td>
-            <strong>
-              ${esc(a.course)}
-            </strong>
-          </td>
+        <td><span class="badge">${esc(a.type)}</span></td>
+        <td>${formatDate(a.dueDate)}</td>
 
-          <td>
-            ${esc(a.title)}
+        <td>
+          <span class="badge ${
+            a.status === 'Completada'
+              ? 'done'
+              : a.status === 'En progreso'
+                ? 'progress'
+                : overdue
+                  ? 'overdue'
+                  : ''
+          }">${esc(a.status)}</span>
+        </td>
 
-            ${
-              a.source === 'Manual'
-                ? '<span class="manual-tag">Manual</span>'
-                : ''
-            }
-          </td>
+        <td><span class="badge">${esc(priorityLabel[priority])}</span></td>
 
-          <td>
-            <span class="badge">
-              ${esc(a.type)}
-            </span>
-          </td>
+        <td class="actions-cell">
+          ${a.url ? `
+            <a class="action" href="${escAttr(a.url)}" target="_blank" rel="noopener">Abrir</a>
+          ` : ''}
 
-          <td>
-            ${formatDate(a.dueDate)}
-          </td>
+          ${isAdmin ? `
+            <button class="action" data-id="${escAttr(a.id)}">Cambiar</button>
+          ` : ''}
 
-          <td>
-            <span
-              class="badge ${
-                a.status === 'Completada'
-                  ? 'done'
-                  : a.status === 'En progreso'
-                    ? 'progress'
-                    : ''
-              }"
-            >
-              ${esc(a.status)}
-            </span>
-          </td>
-
-          <td>
-            <span class="badge">
-              ${esc(
-                priorityLabel[priority]
-              )}
-            </span>
-          </td>
-
-          <td>
-
-            ${
-              a.url
-                ? `
-                  <a
-                    class="action"
-                    href="${escAttr(a.url)}"
-                    target="_blank"
-                    rel="noopener"
-                  >
-                    Abrir
-                  </a>
-                `
-                : ''
-            }
-
-            ${
-              isAdmin
-                ? `
-                  <button
-                    class="action"
-                    data-id="${escAttr(a.id)}"
-                  >
-                    Cambiar
-                  </button>
-                `
-                : ''
-            }
-
-            ${deleteButton}
-
-          </td>
-
-        </tr>
-      `;
-
-    }).join('');
+          ${deleteButton}
+        </td>
+      </tr>
+    `;
+  }).join('');
 
   /* =========================================
      CAMBIAR ESTADO
   ========================================= */
 
-  document
-    .querySelectorAll('[data-id]')
-    .forEach(button => {
+  document.querySelectorAll('[data-id]').forEach(button => {
+    button.onclick = async () => {
+      const a = activities.find(x => String(x.id) === String(button.dataset.id));
+      if (!a) return;
 
-      button.onclick =
-        async () => {
+      const next = a.status === 'Pendiente'
+        ? 'En progreso'
+        : a.status === 'En progreso'
+          ? 'Completada'
+          : 'Pendiente';
 
-          const a =
-            activities.find(
-              x =>
-                String(x.id) ===
-                String(button.dataset.id)
-            );
+      try {
+        const response = await fetch('/api/activities/' + encodeURIComponent(a.id), {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Admin-Key': getAdminKey()
+          },
+          body: JSON.stringify({ status: next })
+        });
 
-          if (!a) {
-            return;
-          }
-
-          const next =
-            a.status === 'Pendiente'
-              ? 'En progreso'
-              : a.status === 'En progreso'
-                ? 'Completada'
-                : 'Pendiente';
-
-          try {
-
-            const response =
-              await fetch(
-                '/api/activities/' +
-                encodeURIComponent(a.id),
-                {
-                  method: 'PATCH',
-
-                  headers: {
-                    'Content-Type':
-                      'application/json',
-
-                    'X-Admin-Key':
-                      getAdminKey()
-                  },
-
-                  body:
-                    JSON.stringify({
-                      status: next
-                    })
-                }
-              );
-
-            if (!response.ok) {
-              throw new Error(
-                'No se pudo actualizar'
-              );
-            }
-
-            await load(false);
-
-          } catch (error) {
-
-            console.error(error);
-
-            toast(
-              '❌ No se pudo cambiar el estado'
-            );
-          }
-        };
-    });
+        if (!response.ok) throw new Error('No se pudo actualizar');
+        await load(false);
+      } catch (error) {
+        console.error(error);
+        toast('❌ No se pudo cambiar el estado');
+      }
+    };
+  });
 
   /* =========================================
      ELIMINAR
   ========================================= */
 
-  document
-    .querySelectorAll('[data-delete]')
-    .forEach(button => {
+  document.querySelectorAll('[data-delete]').forEach(button => {
+    button.onclick = async () => {
+      if (!isAdmin) {
+        toast('🔒 Necesitas permisos de administrador');
+        return;
+      }
 
-      button.onclick =
-        async () => {
+      if (!confirm('¿Eliminar esta actividad manual?')) return;
 
-          if (!isAdmin) {
+      try {
+        const response = await fetch('/api/activities/' + encodeURIComponent(button.dataset.delete), {
+          method: 'DELETE',
+          headers: { 'X-Admin-Key': getAdminKey() }
+        });
 
-            toast(
-              '🔒 Necesitas permisos de administrador'
-            );
+        if (response.status === 401 || response.status === 403) {
+          logoutAdmin();
+          toast('🔒 Sesión de administrador inválida');
+          return;
+        }
 
-            return;
-          }
+        if (!response.ok) {
+          const data = await response.json().catch(() => ({}));
+          throw new Error(data.error || 'No se pudo eliminar');
+        }
 
-          if (
-            !confirm(
-              '¿Eliminar esta actividad manual?'
-            )
-          ) {
-            return;
-          }
-
-          try {
-
-            const response =
-              await fetch(
-                '/api/activities/' +
-                encodeURIComponent(
-                  button.dataset.delete
-                ),
-                {
-                  method: 'DELETE',
-
-                  headers: {
-                    'X-Admin-Key':
-                      getAdminKey()
-                  }
-                }
-              );
-
-            if (
-              response.status === 401 ||
-              response.status === 403
-            ) {
-
-              logoutAdmin();
-
-              toast(
-                '🔒 Sesión de administrador inválida'
-              );
-
-              return;
-            }
-
-            if (!response.ok) {
-
-              const data =
-                await response
-                  .json()
-                  .catch(
-                    () => ({})
-                  );
-
-              throw new Error(
-                data.error ||
-                'No se pudo eliminar'
-              );
-            }
-
-            await load(false);
-
-            toast(
-              '✅ Actividad eliminada'
-            );
-
-          } catch (error) {
-
-            console.error(error);
-
-            toast(
-              '❌ ' +
-              (
-                error.message ||
-                'No se pudo eliminar'
-              )
-            );
-          }
-        };
-    });
+        await load(false);
+        toast('✅ Actividad eliminada');
+      } catch (error) {
+        console.error(error);
+        toast('❌ ' + (error.message || 'No se pudo eliminar'));
+      }
+    };
+  });
 }
 
 /* =========================================
@@ -846,6 +774,7 @@ async function load(
           )
       }));
 
+    populateCourseFilter();
     render();
 
     const lastSync =
@@ -1101,8 +1030,11 @@ if (activityForm) {
 
 [
   'search',
+  'courseFilter',
   'statusFilter',
-  'typeFilter'
+  'typeFilter',
+  'dateFilter',
+  'priorityFilter'
 ].forEach(id => {
 
   const element =
@@ -1121,6 +1053,33 @@ if (activityForm) {
     'change',
     render
   );
+});
+
+const clearFiltersBtn = $('#clearFiltersBtn');
+
+if (clearFiltersBtn) {
+  clearFiltersBtn.onclick = () => {
+    $('#search').value = '';
+    $('#courseFilter').value = 'all';
+    $('#statusFilter').value = 'all';
+    $('#typeFilter').value = 'all';
+    $('#dateFilter').value = 'all';
+    $('#priorityFilter').value = 'all';
+
+    document.querySelectorAll('.quick-filter').forEach(button => {
+      button.classList.toggle('active', button.dataset.quick === 'all');
+    });
+
+    render();
+  };
+}
+
+document.querySelectorAll('.quick-filter').forEach(button => {
+  button.addEventListener('click', () => {
+    document.querySelectorAll('.quick-filter').forEach(item => item.classList.remove('active'));
+    button.classList.add('active');
+    render();
+  });
 });
 
 /* =========================================

@@ -1,4 +1,4 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="es">
 
 <head>
@@ -99,58 +99,65 @@
          FILTROS
     ====================================== -->
 
-    <section class="toolbar card">
+    <section class="filters card">
 
-      <input
-        id="search"
-        type="search"
-        placeholder="Buscar materia, actividad o tipo…"
-      >
+      <div class="quick-filters" aria-label="Filtros rápidos">
+        <button class="quick-filter active" type="button" data-quick="all">📚 Todas</button>
+        <button class="quick-filter" type="button" data-quick="upcoming">⏰ Próximas</button>
+        <button class="quick-filter" type="button" data-quick="overdue">🔴 Vencidas</button>
+        <button class="quick-filter" type="button" data-quick="done">✅ Completadas</button>
+      </div>
 
-      <select id="statusFilter">
+      <div class="toolbar">
+        <input
+          id="search"
+          type="search"
+          placeholder="Buscar materia o actividad…"
+        >
 
-        <option value="all">
-          Todos los estados
-        </option>
+        <select id="courseFilter">
+          <option value="all">Todas las materias</option>
+        </select>
 
-        <option>
-          Pendiente
-        </option>
+        <select id="statusFilter">
+          <option value="all">Todos los estados</option>
+          <option>Pendiente</option>
+          <option>En progreso</option>
+          <option>Completada</option>
+        </select>
 
-        <option>
-          En progreso
-        </option>
+        <select id="typeFilter">
+          <option value="all">Todos los tipos</option>
+          <option>Tarea</option>
+          <option>Test</option>
+          <option>Foro</option>
+          <option>Actividad</option>
+        </select>
 
-        <option>
-          Completada
-        </option>
+        <select id="dateFilter">
+          <option value="all">Todas las fechas</option>
+          <option value="overdue">Vencidas</option>
+          <option value="today">Vencen hoy</option>
+          <option value="7days">Próximos 7 días</option>
+          <option value="30days">Próximos 30 días</option>
+          <option value="month">Este mes</option>
+          <option value="future">Desde hoy en adelante</option>
+        </select>
 
-      </select>
+        <select id="priorityFilter">
+          <option value="all">Todas las prioridades</option>
+          <option>Urgente</option>
+          <option>Alta</option>
+          <option>Media</option>
+          <option>Baja</option>
+        </select>
 
+        <button id="clearFiltersBtn" class="btn secondary clear-filters" type="button">Limpiar filtros</button>
+      </div>
 
-      <select id="typeFilter">
-
-        <option value="all">
-          Todos los tipos
-        </option>
-
-        <option>
-          Tarea
-        </option>
-
-        <option>
-          Test
-        </option>
-
-        <option>
-          Foro
-        </option>
-
-        <option>
-          Actividad
-        </option>
-
-      </select>
+      <div class="filter-summary">
+        <span id="filterSummary">Mostrando todas las actividades</span>
+      </div>
 
     </section>
 
