@@ -4,6 +4,28 @@
   const DETAIL_CACHE_MS = 10 * 60 * 1000;
   const MOD_RE = /\/mod\/(assign|quiz|forum|workshop|lesson|choice|feedback|data|glossary)\//i;
 
+  function canonicalActivityUrl(rawUrl = '') {
+    try {
+      const u = new URL(rawUrl, location.href);
+      const returnUrl = u.searchParams.get('returnurl');
+      if (returnUrl) {
+        try { return canonicalActivityUrl(decodeURIComponent(returnUrl)); } catch {}
+      }
+
+      const m = u.pathname.match(/\/mod\/(assign|quiz|forum|workshop|lesson|choice|feedback|data|glossary)\/(view|review|subscribe)\.php$/i);
+      if (!m) return u.href;
+
+      const mod = m[1].toLowerCase();
+      let id = u.searchParams.get('id');
+      if (!id && mod === 'quiz') id = u.searchParams.get('cmid');
+      if (!id) return u.href;
+
+      return `${u.origin}/mod/${mod}/view.php?id=${encodeURIComponent(id)}`;
+    } catch {
+      return String(rawUrl || '');
+    }
+  }
+
   let running = false;
   let timer = null;
   const detailCache = new Map();
@@ -172,6 +194,7 @@
   }
 
   async function fetchActivityDetails(url, fallbackTitle = '') {
+    url = canonicalActivityUrl(url);
     const cached = detailCache.get(url);
     if (cached && Date.now() - cached.fetchedAt < DETAIL_CACHE_MS) return cached.details;
 
@@ -207,6 +230,7 @@
   }
 
   async function buildActivity(url, fallbackTitle = '', old = null) {
+    url = canonicalActivityUrl(url);
     let details = { course:'', title:cleanTitle(fallbackTitle), dueDate:'' };
     try {
       details = await fetchActivityDetails(url, fallbackTitle);
@@ -234,7 +258,7 @@
     const byUrl = new Map();
     for (const anchor of anchors) {
       let url;
-      try { url = new URL(anchor.href, location.href).href; } catch { continue; }
+      try { url = canonicalActivityUrl(new URL(anchor.href, location.href).href); } catch { continue; }
       const fallbackTitle = fallbackTitleFromAnchor(anchor);
       if (!fallbackTitle || fallbackTitle.length < 2 || isNoiseTitle(fallbackTitle)) continue;
       if (!byUrl.has(url)) byUrl.set(url, fallbackTitle);
@@ -283,7 +307,7 @@
       const suspects = all.filter(a => {
         if (!MOD_RE.test(String(a.url || ''))) return false;
         const expectedType = typeFromUrl(a.url);
-        return isBadCourseName(a.course) || cleanCourseName(a.course) !== norm(a.course) || a.type !== expectedType || /^(Vencimiento\s+de|Se\s+abre)\s+/i.test(String(a.title || '')) || !a.dueDate;
+        return canonicalActivityUrl(a.url) !== String(a.url || '') || isBadCourseName(a.course) || cleanCourseName(a.course) !== norm(a.course) || a.type !== expectedType || /^(Vencimiento\s+de|Se\s+abre)\s+/i.test(String(a.title || '')) || !a.dueDate;
       }).slice(0, 60);
 
       let repaired = 0;

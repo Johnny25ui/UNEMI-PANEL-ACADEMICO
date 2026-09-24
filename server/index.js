@@ -73,6 +73,41 @@ function normalizePriority(priority) {
     : 'Media';
 }
 
+function cleanCourseName(name = '') {
+  let t = String(name || '').replace(/\s+/g, ' ').trim();
+  t = t.replace(/\s*,\s*\[[^\]]*\].*$/i, '');
+  t = t.replace(/\s+-\s+C\d+\s*\[[^\]]*\]\s*-\s*[A-Z]\s*$/i, '');
+  return t.trim();
+}
+
+function canonicalActivityUrl(rawUrl = '') {
+  try {
+    const u = new URL(String(rawUrl || ''));
+    const returnUrl = u.searchParams.get('returnurl');
+    if (returnUrl) {
+      try { return canonicalActivityUrl(decodeURIComponent(returnUrl)); } catch {}
+    }
+
+    const m = u.pathname.match(/\/mod\/(assign|quiz|forum|workshop|lesson|choice|feedback|data|glossary)\/(view|review|subscribe)\.php$/i);
+    if (!m) return u.href;
+
+    const mod = m[1].toLowerCase();
+    let id = u.searchParams.get('id');
+    if (!id && mod === 'quiz') id = u.searchParams.get('cmid');
+    if (!id) return u.href;
+    return `${u.origin}/mod/${mod}/view.php?id=${encodeURIComponent(id)}`;
+  } catch {
+    return String(rawUrl || '').trim();
+  }
+}
+
+function statusRank(status = '') {
+  if (status === 'Completada') return 3;
+  if (status === 'En progreso') return 2;
+  if (status === 'Pendiente') return 1;
+  return 0;
+}
+
 /* =========================================
    ARCHIVO LOCAL DE RESPALDO
 ========================================= */
@@ -183,11 +218,11 @@ async function getActivities() {
 
 async function syncActivity(x) {
   const activity = {
-    course: String(x.course || '').trim(),
+    course: cleanCourseName(x.course),
     title: String(x.title || '').trim(),
     type: x.type || 'Actividad',
     dueDate: x.dueDate || '',
-    url: String(x.url || '').trim(),
+    url: canonicalActivityUrl(x.url),
     status: x.status || 'Pendiente',
     source: x.source || 'Aula UNEMI',
     notes: x.notes || '',
@@ -229,13 +264,33 @@ async function syncActivity(x) {
     return { added: true, updated: false, activity: created };
   }
 
-  const existing = await pool.query(`
-    SELECT * FROM activities WHERE url = $1 LIMIT 1
-  `, [activity.url]);
+  const candidates = await pool.query(`
+    SELECT * FROM activities
+    WHERE url LIKE $1
+       OR url LIKE $2
+       OR url = $3
+  `, [
+    `%${new URL(activity.url).pathname}%`,
+    `%${new URL(activity.url).searchParams.get('id') || ''}%`,
+    activity.url
+  ]);
 
-  if (existing.rows.length) {
-    const old = existing.rows[0];
+  const matches = candidates.rows.filter(row => canonicalActivityUrl(row.url) === activity.url);
+
+  if (matches.length) {
+    matches.sort((a, b) => {
+      const sr = statusRank(b.status) - statusRank(a.status);
+      if (sr) return sr;
+      const an = String(a.notes || '').trim() ? 1 : 0;
+      const bn = String(b.notes || '').trim() ? 1 : 0;
+      if (bn !== an) return bn - an;
+      return new Date(a.created_at || 0) - new Date(b.created_at || 0);
+    });
+
+    const old = matches[0];
     const dueDate = activity.dueDate || old.due_date || '';
+    const notes = old.notes || activity.notes || '';
+    const priority = normalizePriority(old.priority || activity.priority);
 
     await pool.query(`
       UPDATE activities
@@ -243,26 +298,35 @@ async function syncActivity(x) {
           title = $2,
           type = $3,
           due_date = $4,
-          source = $5
-      WHERE id = $6
-    `, [activity.course, activity.title, activity.type, dueDate, activity.source, old.id]);
+          url = $5,
+          source = $6,
+          notes = $7,
+          priority = $8
+      WHERE id = $9
+    `, [activity.course, activity.title, activity.type, dueDate, activity.url, activity.source, notes, priority, old.id]);
+
+    const duplicateIds = matches.slice(1).map(row => row.id);
+    if (duplicateIds.length) {
+      await pool.query(`DELETE FROM activities WHERE id = ANY($1::text[])`, [duplicateIds]);
+    }
 
     return {
       added: false,
       updated: true,
+      deduplicated: duplicateIds.length,
       activity: {
         id: old.id,
         course: activity.course,
         title: activity.title,
         type: activity.type,
         dueDate,
-        url: old.url,
+        url: activity.url,
         status: old.status,
         createdAt: old.created_at,
         source: activity.source,
-        notes: old.notes,
+        notes,
         reminderMinutes: old.reminder_minutes,
-        priority: normalizePriority(old.priority)
+        priority
       }
     };
   }
@@ -278,7 +342,7 @@ async function addActivity(x) {
     id: x.id ||
       `${Date.now()}-${Math.random().toString(16).slice(2)}`,
 
-    course: String(x.course).trim(),
+    course: cleanCourseName(x.course),
 
     title: String(x.title).trim(),
 
@@ -286,7 +350,7 @@ async function addActivity(x) {
 
     dueDate: x.dueDate || '',
 
-    url: x.url || '',
+    url: canonicalActivityUrl(x.url || ''),
 
     status: x.status || 'Pendiente',
 
