@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>UNEMI Panel Sync</title>
+  <style>
+    body{font-family:Arial,sans-serif;max-width:680px;margin:40px auto;padding:0 20px;color:#172033}
+    .card{border:1px solid #dbe2ea;border-radius:16px;padding:24px;box-shadow:0 8px 24px rgba(0,0,0,.06)}
+    label{display:block;font-weight:700;margin:18px 0 7px}
+    input{width:100%;box-sizing:border-box;padding:12px;border:1px solid #b8c4d1;border-radius:9px}
+    button{margin-top:20px;padding:12px 18px;border:0;border-radius:9px;background:#1739b5;color:white;font-weight:700;cursor:pointer}
+    #status{margin-left:12px;font-weight:700}
+    p{line-height:1.5;color:#526070}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>UNEMI Panel Sync</h1>
+    <p>Configura una sola vez la dirección de tu panel y la clave de sincronización. La extensión enviará automáticamente las actividades visibles del Aula Virtual mientras tengas tu sesión iniciada.</p>
+    <label for="apiBase">Dirección del panel</label>
+    <input id="apiBase" type="url" value="https://unemi-panel-academico.onrender.com" />
+    <label for="syncKey">Clave de sincronización (SYNC_KEY de Render)</label>
+    <input id="syncKey" type="password" autocomplete="off" />
+    <button id="save">Guardar</button><span id="status"></span>
+  </div>
+  <script src="options.js"></script>
+</body>
+</html>

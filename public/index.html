@@ -1,0 +1,509 @@
+﻿<!doctype html>
+<html lang="es">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+
+  <title>Mi Panel Académico UNEMI</title>
+
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+  <!-- =====================================
+       ENCABEZADO
+  ====================================== -->
+
+  <header class="topbar">
+
+    <div>
+
+      <span class="eyebrow">
+        UNEMI · PANEL ACADÉMICO
+      </span>
+
+      <h1>
+        Mi Panel Académico
+      </h1>
+
+      <p>
+        Actividades automáticas y actividades agregadas manualmente.
+      </p>
+
+    </div>
+
+    <div class="top-actions">
+
+      <button
+        id="adminBtn"
+        class="btn secondary"
+      >
+        🔑 Administrador
+      </button>
+
+      <button
+        id="notifyBtn"
+        class="btn secondary"
+      >
+        🔔 Activar avisos
+      </button>
+
+      <button
+        id="refreshBtn"
+        class="btn primary"
+      >
+        Actualizar
+      </button>
+
+    </div>
+
+  </header>
+
+
+  <!-- =====================================
+       CONTENIDO PRINCIPAL
+  ====================================== -->
+
+  <main class="container">
+
+    <!-- ESTADÍSTICAS -->
+
+    <section class="stats">
+
+      <article>
+        <span>Total</span>
+        <strong id="total">0</strong>
+      </article>
+
+      <article>
+        <span>Pendientes</span>
+        <strong id="pending">0</strong>
+      </article>
+
+      <article>
+        <span>Próximas</span>
+        <strong id="upcoming">0</strong>
+      </article>
+
+      <article>
+        <span>Completadas</span>
+        <strong id="done">0</strong>
+      </article>
+
+    </section>
+
+
+    <!-- =====================================
+         FILTROS
+    ====================================== -->
+
+    <section class="toolbar card">
+
+      <input
+        id="search"
+        type="search"
+        placeholder="Buscar materia, actividad o tipo…"
+      >
+
+      <select id="statusFilter">
+
+        <option value="all">
+          Todos los estados
+        </option>
+
+        <option>
+          Pendiente
+        </option>
+
+        <option>
+          En progreso
+        </option>
+
+        <option>
+          Completada
+        </option>
+
+      </select>
+
+
+      <select id="typeFilter">
+
+        <option value="all">
+          Todos los tipos
+        </option>
+
+        <option>
+          Tarea
+        </option>
+
+        <option>
+          Test
+        </option>
+
+        <option>
+          Foro
+        </option>
+
+        <option>
+          Actividad
+        </option>
+
+      </select>
+
+    </section>
+
+
+    <!-- =====================================
+         ACTIVIDADES
+    ====================================== -->
+
+    <section class="card">
+
+      <div class="section-head">
+
+        <div>
+
+          <h2>
+            Actividades
+          </h2>
+
+          <span id="lastSync">
+            Sin sincronizar
+          </span>
+
+        </div>
+
+        <button
+          id="addBtn"
+          class="btn primary"
+        >
+          ＋ Agregar actividad
+        </button>
+
+      </div>
+
+
+      <!-- =====================================
+           TABLA
+      ====================================== -->
+
+      <div class="table-wrap">
+
+        <table>
+
+          <thead>
+
+            <tr>
+
+              <th>
+                Materia
+              </th>
+
+              <th>
+                Actividad
+              </th>
+
+              <th>
+                Tipo
+              </th>
+
+              <th>
+                Fecha de entrega
+              </th>
+
+              <th>
+                Estado
+              </th>
+
+              <th>
+                Prioridad
+              </th>
+
+              <th>
+                Acciones
+              </th>
+
+            </tr>
+
+          </thead>
+
+          <tbody id="activitiesBody">
+
+          </tbody>
+
+        </table>
+
+      </div>
+
+    </section>
+
+
+    <!-- =====================================
+         FORMULARIO
+    ====================================== -->
+
+    <section
+      id="formCard"
+      class="card hidden"
+    >
+
+      <div class="section-head">
+
+        <div>
+
+          <h2 id="formTitle">
+            Agregar actividad
+          </h2>
+
+          <span>
+            Registra una actividad manualmente.
+          </span>
+
+        </div>
+
+        <button
+          id="closeFormBtn"
+          class="btn secondary"
+        >
+          Cerrar
+        </button>
+
+      </div>
+
+
+      <form id="activityForm">
+
+        <input
+          id="activityId"
+          type="hidden"
+        >
+
+
+        <div class="form-grid">
+
+          <label>
+
+            Materia
+
+            <input
+              id="course"
+              type="text"
+              required
+            >
+
+          </label>
+
+
+          <label>
+
+            Actividad
+
+            <input
+              id="title"
+              type="text"
+              required
+            >
+
+          </label>
+
+
+          <label>
+
+            Tipo
+
+            <select id="type">
+
+              <option>
+                Tarea
+              </option>
+
+              <option>
+                Test
+              </option>
+
+              <option>
+                Foro
+              </option>
+
+              <option>
+                Actividad
+              </option>
+
+            </select>
+
+          </label>
+
+
+          <label>
+
+            Fecha de entrega
+
+            <input
+              id="dueDate"
+              type="datetime-local"
+            >
+
+          </label>
+
+
+          <label>
+
+            Estado
+
+            <select id="status">
+
+              <option>
+                Pendiente
+              </option>
+
+              <option>
+                En progreso
+              </option>
+
+              <option>
+                Completada
+              </option>
+
+            </select>
+
+          </label>
+
+
+          <label>
+
+            Prioridad
+
+            <select id="priority">
+
+              <option value="Urgente">
+                🔴 Urgente
+              </option>
+
+              <option value="Alta">
+                🟠 Alta
+              </option>
+
+              <option
+                value="Media"
+                selected
+              >
+                🟡 Media
+              </option>
+
+              <option value="Baja">
+                🟢 Baja
+              </option>
+
+            </select>
+
+          </label>
+
+
+          <label>
+
+            Enlace
+
+            <input
+              id="url"
+              type="url"
+              placeholder="https://..."
+            >
+
+          </label>
+
+
+          <label>
+
+            Recordatorio
+
+            <select id="reminderMinutes">
+
+              <option value="15">
+                15 minutos antes
+              </option>
+
+              <option value="30">
+                30 minutos antes
+              </option>
+
+              <option value="60">
+                1 hora antes
+              </option>
+
+              <option
+                value="1440"
+                selected
+              >
+                1 día antes
+              </option>
+
+              <option value="2880">
+                2 días antes
+              </option>
+
+            </select>
+
+          </label>
+
+
+          <label class="full">
+
+            Notas
+
+            <textarea
+              id="notes"
+              rows="4"
+            ></textarea>
+
+          </label>
+
+        </div>
+
+
+        <div class="form-actions">
+
+          <button
+            type="button"
+            id="cancelBtn"
+            class="btn secondary"
+          >
+            Cancelar
+          </button>
+
+          <button
+            type="submit"
+            class="btn primary"
+          >
+            Guardar actividad
+          </button>
+
+        </div>
+
+      </form>
+
+    </section>
+
+  </main>
+
+
+  <!-- =====================================
+       TOAST
+  ====================================== -->
+
+  <div
+    id="toast"
+    class="toast"
+  ></div>
+
+
+  <!-- =====================================
+       JAVASCRIPT
+  ====================================== -->
+
+  <script src="app.js"></script>
+
+</body>
+
+</html>

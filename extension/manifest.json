@@ -1,0 +1,17 @@
+{
+  "manifest_version": 3,
+  "name": "UNEMI Panel Sync",
+  "version": "1.1.0",
+  "description": "Sincroniza automáticamente actividades visibles del Aula Virtual UNEMI con tu panel académico.",
+  "permissions": ["storage"],
+  "host_permissions": [
+    "https://aulagradob.unemi.edu.ec/*",
+    "https://unemi-panel-academico.onrender.com/*"
+  ],
+  "content_scripts": [{
+    "matches": ["https://aulagradob.unemi.edu.ec/*"],
+    "js": ["content.js"],
+    "run_at": "document_idle"
+  }],
+  "options_page": "options.html"
+}

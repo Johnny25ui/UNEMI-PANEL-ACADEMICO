@@ -1,0 +1,12 @@
+{
+  "name": "unemi-panel-academico",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node server/index.js"
+  },
+  "dependencies": {
+    "pg": "^8.23.0"
+  }
+}
