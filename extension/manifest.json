@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "UNEMI Panel Sync",
-  "version": "1.3.0",
-  "description": "Sincroniza actividades del Aula Virtual UNEMI corrigiendo materia, tipo y fecha desde la actividad y reparando registros anteriores.",
+  "version": "1.3.1",
+  "description": "Sincroniza actividades del Aula Virtual UNEMI mostrando solo el nombre limpio de la materia y corrigiendo tipo y fecha.",
   "permissions": [
     "storage"
   ],

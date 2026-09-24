@@ -30,8 +30,18 @@
     return /^(avisos|announcements|novedades|news forum|foro de avisos)$/.test(t);
   }
 
+
+  function cleanCourseName(name = '') {
+    let t = norm(name);
+    // Conserva solo el nombre de la materia y elimina metadatos de cohorte/paralelo.
+    // Ej.: "PRÁCTICAS LABORALES I,[PPP] - C1[138546] - P" -> "PRÁCTICAS LABORALES I"
+    t = t.replace(/\s*,\s*\[[^\]]*\].*$/i, '');
+    t = t.replace(/\s+-\s+C\d+\s*\[[^\]]*\]\s*-\s*[A-Z]\s*$/i, '');
+    return norm(t);
+  }
+
   function isBadCourseName(name = '') {
-    const t = norm(name).toLowerCase();
+    const t = cleanCourseName(name).toLowerCase();
     if (!t) return true;
     if (/^(foros?|ex[aá]menes?|simuladores?|actividades(?:\s+.+)?|september\s+\d{4}|septiembre\s+\d{4})$/i.test(t)) return true;
     if (/^(january|february|march|april|may|june|july|august|september|october|november|december)\s+\d{4}$/i.test(t)) return true;
@@ -128,15 +138,16 @@
     if (courseCache.has(courseRef.id)) return courseCache.get(courseRef.id);
 
     if (courseRef.text && !isBadCourseName(courseRef.text)) {
-      courseCache.set(courseRef.id, courseRef.text);
-      return courseRef.text;
+      const cleaned = cleanCourseName(courseRef.text);
+      courseCache.set(courseRef.id, cleaned);
+      return cleaned;
     }
 
     try {
       const r = await fetch(courseRef.url, { credentials:'include', cache:'no-store' });
       if (!r.ok) return '';
       const doc = new DOMParser().parseFromString(await r.text(), 'text/html');
-      const h1 = norm(doc.querySelector('.page-header-headings h1, #page-header h1, h1')?.textContent);
+      const h1 = cleanCourseName(doc.querySelector('.page-header-headings h1, #page-header h1, h1')?.textContent);
       if (h1 && !isBadCourseName(h1)) {
         courseCache.set(courseRef.id, h1);
         return h1;
@@ -190,7 +201,7 @@
 
   function fallbackCourseFromPage() {
     const heading = document.querySelector('.page-header-headings h1, #page-header h1, h1');
-    const t = norm(heading?.textContent || '');
+    const t = cleanCourseName(heading?.textContent || '');
     if (t && !isBadCourseName(t) && !/^(dashboard|área personal|my courses|mis cursos)$/i.test(t)) return t;
     return '';
   }
@@ -202,7 +213,7 @@
     } catch (error) {
       console.warn('[UNEMI Sync] No se pudo ampliar', url, error);
     }
-    const course = details.course || (!isBadCourseName(old?.course) ? norm(old?.course) : '') || fallbackCourseFromPage();
+    const course = cleanCourseName(details.course || (!isBadCourseName(old?.course) ? old?.course : '') || fallbackCourseFromPage());
     const title = cleanTitle(details.title || fallbackTitle || old?.title || '');
     return {
       course,
@@ -272,7 +283,7 @@
       const suspects = all.filter(a => {
         if (!MOD_RE.test(String(a.url || ''))) return false;
         const expectedType = typeFromUrl(a.url);
-        return isBadCourseName(a.course) || a.type !== expectedType || /^(Vencimiento\s+de|Se\s+abre)\s+/i.test(String(a.title || '')) || !a.dueDate;
+        return isBadCourseName(a.course) || cleanCourseName(a.course) !== norm(a.course) || a.type !== expectedType || /^(Vencimiento\s+de|Se\s+abre)\s+/i.test(String(a.title || '')) || !a.dueDate;
       }).slice(0, 60);
 
       let repaired = 0;
