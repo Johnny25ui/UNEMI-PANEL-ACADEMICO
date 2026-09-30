@@ -497,18 +497,45 @@ function populateCourseFilter() {
   const select = $('#courseFilter');
   if (!select) return;
 
-  const previous = select.value || 'all';
+  const levelFilter = $('#levelFilter');
+  const selectedLevel = levelFilter?.value || 'all';
+
+  const current = select.value;
+
+  const filteredByLevel =
+    selectedLevel === 'all'
+      ? activities
+      : activities.filter(
+          a => String(a.level || 8) === String(selectedLevel)
+        );
+
   const courses = [...new Set(
-    activities
-      .map(a => String(a.course || '').trim())
+    filteredByLevel
+      .map(a => a.course)
       .filter(Boolean)
-  )].sort((a, b) => a.localeCompare(b, 'es', { sensitivity: 'base' }));
+  )].sort((a, b) =>
+    a.localeCompare(b, 'es', {
+      sensitivity: 'base'
+    })
+  );
 
-  select.innerHTML = '<option value="all">Todas las materias</option>' +
-    courses.map(course => `<option value="${escAttr(course)}">${esc(course)}</option>`).join('');
+  select.innerHTML =
+    '<option value="all">Todas las materias</option>' +
+    courses
+      .map(
+        course =>
+          `<option value="${escAttr(course)}">${esc(course)}</option>`
+      )
+      .join('');
 
-  if (previous === 'all' || courses.includes(previous)) {
-    select.value = previous;
+  if (
+    [...select.options].some(
+      option => option.value === current
+    )
+  ) {
+    select.value = current;
+  } else {
+    select.value = 'all';
   }
 }
 
@@ -1067,12 +1094,26 @@ if (activityForm) {
   );
 });
 
+/* =========================================
+   ACTUALIZAR MATERIAS AL CAMBIAR NIVEL
+========================================= */
+
+const levelFilterForCourses = $('#levelFilter');
+
+if (levelFilterForCourses) {
+  levelFilterForCourses.addEventListener('change', () => {
+    populateCourseFilter();
+    render();
+  });
+}
+
 const clearFiltersBtn = $('#clearFiltersBtn');
 
 if (clearFiltersBtn) {
   clearFiltersBtn.onclick = () => {
     $('#search').value = '';
     $('#levelFilter').value = '8';
+    populateCourseFilter();
     $('#courseFilter').value = 'all';
     $('#statusFilter').value = 'all';
     $('#typeFilter').value = 'all';
