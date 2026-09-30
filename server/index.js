@@ -38,6 +38,37 @@ function normalizeLevel(level) {
   return Number.isInteger(n) && n >= 1 && n <= 10 ? n : CURRENT_LEVEL;
 }
 
+function detectLevelFromText(...values) {
+  for (const value of values) {
+    const match = String(value || '')
+      .match(/\bTI\s*0?(10|[1-9])(?:\b|[-_])/i);
+
+    if (match) {
+      return Number(match[1]);
+    }
+  }
+
+  return null;
+}
+
+function resolveIncomingLevel(x = {}) {
+  const explicit = Number(x.level);
+
+  if (
+    Number.isInteger(explicit) &&
+    explicit >= 1 &&
+    explicit <= 10
+  ) {
+    return explicit;
+  }
+
+  return detectLevelFromText(
+    x.course,
+    x.title,
+    x.notes
+  ) ?? CURRENT_LEVEL;
+}
+
 function isSync(req) {
   const key = req.headers['x-sync-key'];
   return Boolean(SYNC_KEY && key && key === SYNC_KEY);
@@ -250,7 +281,7 @@ async function syncActivity(x) {
     notes: x.notes || '',
     reminderMinutes: Number.isFinite(Number(x.reminderMinutes)) ? Number(x.reminderMinutes) : 1440,
     priority: normalizePriority(x.priority),
-    level: normalizeLevel(x.level)
+    level: resolveIncomingLevel(x)
   };
 
   if (!activity.course || !activity.title || !activity.url) {
@@ -272,7 +303,7 @@ async function syncActivity(x) {
         source: activity.source,
         notes: items[index].notes || activity.notes,
         priority: items[index].priority || activity.priority,
-        level: normalizeLevel(items[index].level || activity.level)
+        level: activity.level
       };
       saveLocal(items);
       return { added: false, updated: true, activity: items[index] };
@@ -328,7 +359,7 @@ async function syncActivity(x) {
           priority = $8,
           level = $9
       WHERE id = $10
-    `, [activity.course, activity.title, activity.type, dueDate, activity.url, activity.source, notes, priority, normalizeLevel(old.level || activity.level), old.id]);
+    `, [activity.course, activity.title, activity.type, dueDate, activity.url, activity.source, notes, priority, activity.level, old.id]);
 
     const duplicateIds = matches.slice(1).map(row => row.id);
     if (duplicateIds.length) {
@@ -352,7 +383,7 @@ async function syncActivity(x) {
         notes,
         reminderMinutes: old.reminder_minutes,
         priority,
-        level: normalizeLevel(old.level || activity.level)
+        level: activity.level
       }
     };
   }
@@ -396,8 +427,7 @@ async function addActivity(x) {
     priority:
       normalizePriority(x.priority),
 
-    level:
-      normalizeLevel(x.level)
+    level: resolveIncomingLevel(x)
   };
 
   /* =========================================

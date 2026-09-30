@@ -135,6 +135,19 @@
     return cleanTitle(fallback);
   }
 
+  function detectLevelFromText(...values) {
+    for (const value of values) {
+      const match = norm(value)
+        .match(/\bTI\s*0?(10|[1-9])(?:\b|[-_])/i);
+
+      if (match) {
+        return Number(match[1]);
+      }
+    }
+
+    return null;
+  }
+
   function getCourseRefFromDoc(doc) {
     const links = [...doc.querySelectorAll('a[href*="/course/view.php"]')];
     const candidates = [];
@@ -203,9 +216,22 @@
     const html = await response.text();
     const doc = new DOMParser().parseFromString(html, 'text/html');
     const courseRef = getCourseRefFromDoc(doc);
+
+    const rawHeading =
+      doc.querySelector(
+        '.page-header-headings h1, #page-header h1, h1'
+      )?.textContent || '';
+
+    const level = detectLevelFromText(
+      courseRef?.text,
+      rawHeading
+    );
+
     const course = await canonicalCourseName(courseRef);
+
     const details = {
       course,
+      level,
       title: titleFromDoc(doc, fallbackTitle),
       dueDate: dueDateFromDoc(doc)
     };
@@ -231,7 +257,7 @@
 
   async function buildActivity(url, fallbackTitle = '', old = null) {
     url = canonicalActivityUrl(url);
-    let details = { course:'', title:cleanTitle(fallbackTitle), dueDate:'' };
+    let details = { course:'', level:null, title:cleanTitle(fallbackTitle), dueDate:'' };
     try {
       details = await fetchActivityDetails(url, fallbackTitle);
     } catch (error) {
@@ -248,7 +274,17 @@
       status: old?.status || 'Pendiente',
       source: 'Aula UNEMI',
       notes: old?.notes || '',
-      priority: old?.priority || 'Media'
+      priority: old?.priority || 'Media',
+      level:
+        details.level ||
+        detectLevelFromText(
+          old?.course,
+          document.querySelector(
+            '.page-header-headings h1, #page-header h1, h1'
+          )?.textContent
+        ) ||
+        old?.level ||
+        null
     };
   }
 
