@@ -515,17 +515,19 @@ function populateCourseFilter() {
 function render() {
 
   const searchInput = $('#search');
+  const levelFilter = $('#levelFilter');
   const courseFilter = $('#courseFilter');
   const statusFilter = $('#statusFilter');
   const typeFilter = $('#typeFilter');
   const dateFilter = $('#dateFilter');
   const priorityFilter = $('#priorityFilter');
 
-  if (!searchInput || !courseFilter || !statusFilter || !typeFilter || !dateFilter || !priorityFilter) {
+  if (!searchInput || !levelFilter || !courseFilter || !statusFilter || !typeFilter || !dateFilter || !priorityFilter) {
     return;
   }
 
   const q = searchInput.value.toLowerCase().trim();
+  const lf = levelFilter.value;
   const cf = courseFilter.value;
   const sf = statusFilter.value;
   const tf = typeFilter.value;
@@ -541,12 +543,14 @@ function render() {
       .toLowerCase()
       .includes(q);
 
+    const matchesLevel = lf === 'all' || Number(a.level) === Number(lf);
     const matchesCourse = cf === 'all' || a.course === cf;
     const matchesStatus = sf === 'all' || a.status === sf;
     const matchesType = tf === 'all' || a.type === tf;
     const matchesPriority = pf === 'all' || priority === pf;
 
     return matchesSearch &&
+      matchesLevel &&
       matchesCourse &&
       matchesStatus &&
       matchesType &&
@@ -576,6 +580,7 @@ function render() {
   const summary = $('#filterSummary');
   if (summary) {
     const active = [];
+    if (lf !== 'all') active.push(`TI${String(lf).padStart(2, "0")}`);
     if (cf !== 'all') active.push(cf);
     if (sf !== 'all') active.push(sf);
     if (tf !== 'all') active.push(tf);
@@ -602,7 +607,7 @@ function render() {
   if (!sorted.length) {
     tbody.innerHTML = `
       <tr>
-        <td class="empty" colspan="7">
+        <td class="empty" colspan="8">
           No hay actividades que coincidan con los filtros seleccionados.
         </td>
       </tr>
@@ -624,6 +629,8 @@ function render() {
 
     return `
       <tr class="${overdue ? 'overdue-row' : ''}">
+        <td><span class="badge">TI${String(a.level || 8).padStart(2, "0")}</span></td>
+
         <td class="course-cell">
           <strong>${esc(a.course)}</strong>
         </td>
@@ -771,7 +778,8 @@ async function load(
         priority:
           normalizePriority(
             a.priority
-          )
+          ),
+        level: Number(a.level || 8)
       }));
 
     populateCourseFilter();
@@ -921,6 +929,9 @@ if (activityForm) {
 
       const data = {
 
+        level:
+          Number($('#level').value),
+
         course:
           $('#course')
             .value
@@ -1030,6 +1041,7 @@ if (activityForm) {
 
 [
   'search',
+  'levelFilter',
   'courseFilter',
   'statusFilter',
   'typeFilter',
@@ -1060,6 +1072,7 @@ const clearFiltersBtn = $('#clearFiltersBtn');
 if (clearFiltersBtn) {
   clearFiltersBtn.onclick = () => {
     $('#search').value = '';
+    $('#levelFilter').value = '8';
     $('#courseFilter').value = 'all';
     $('#statusFilter').value = 'all';
     $('#typeFilter').value = 'all';

@@ -115,6 +115,20 @@
           placeholder="Buscar materia o actividad…"
         >
 
+        <select id="levelFilter">
+          <option value="all">Todos los niveles</option>
+          <option value="1">TI01</option>
+          <option value="2">TI02</option>
+          <option value="3">TI03</option>
+          <option value="4">TI04</option>
+          <option value="5">TI05</option>
+          <option value="6">TI06</option>
+          <option value="7">TI07</option>
+          <option value="8" selected>TI08 (actual)</option>
+          <option value="9">TI09</option>
+          <option value="10">TI10</option>
+        </select>
+
         <select id="courseFilter">
           <option value="all">Todas las materias</option>
         </select>
@@ -204,6 +218,8 @@
 
             <tr>
 
+              <th>Nivel TI</th>
+
               <th>
                 Materia
               </th>
@@ -289,6 +305,21 @@
 
 
         <div class="form-grid">
+
+          <label>Nivel TI<select id="level">
+              <option value="1">TI01</option>
+              <option value="2">TI02</option>
+              <option value="3">TI03</option>
+              <option value="4">TI04</option>
+              <option value="5">TI05</option>
+              <option value="6">TI06</option>
+              <option value="7">TI07</option>
+              <option value="8" selected>TI08 (actual)</option>
+              <option value="9">TI09</option>
+              <option value="10">TI10</option>
+            </select>
+
+          </label>
 
           <label>
 

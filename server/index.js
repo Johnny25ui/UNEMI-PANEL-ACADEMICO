@@ -31,6 +31,12 @@ const DATABASE_URL = process.env.DATABASE_URL || '';
 
 const ADMIN_KEY = process.env.ADMIN_KEY || '';
 const SYNC_KEY = process.env.SYNC_KEY || '';
+const CURRENT_LEVEL = Math.min(10, Math.max(1, Number(process.env.CURRENT_LEVEL || 8)));
+
+function normalizeLevel(level) {
+  const n = Number(level);
+  return Number.isInteger(n) && n >= 1 && n <= 10 ? n : CURRENT_LEVEL;
+}
 
 function isSync(req) {
   const key = req.headers['x-sync-key'];
@@ -120,7 +126,8 @@ const readLocal = () => {
 
     return data.map(item => ({
       ...item,
-      priority: normalizePriority(item.priority)
+      priority: normalizePriority(item.priority),
+      level: normalizeLevel(item.level)
     }));
   } catch {
     return [];
@@ -160,7 +167,8 @@ async function initDatabase() {
       source TEXT DEFAULT 'Manual',
       notes TEXT DEFAULT '',
       reminder_minutes INTEGER DEFAULT 1440,
-      priority TEXT DEFAULT 'Media'
+      priority TEXT DEFAULT 'Media',
+      level INTEGER DEFAULT 8
     )
   `);
 
@@ -170,10 +178,23 @@ async function initDatabase() {
   `);
 
   await pool.query(`
+    ALTER TABLE activities
+    ADD COLUMN IF NOT EXISTS level INTEGER DEFAULT ${CURRENT_LEVEL}
+  `);
+
+  await pool.query(`
     UPDATE activities
     SET priority = 'Media'
     WHERE priority IS NULL
        OR priority = ''
+  `);
+
+  await pool.query(`
+    UPDATE activities
+    SET level = ${CURRENT_LEVEL}
+    WHERE level IS NULL
+       OR level < 1
+       OR level > 10
   `);
 
   console.log('PostgreSQL conectado correctamente.');
@@ -201,7 +222,8 @@ async function getActivities() {
       source,
       notes,
       reminder_minutes AS "reminderMinutes",
-      priority
+      priority,
+      level
     FROM activities
     ORDER BY created_at DESC
   `);
@@ -227,7 +249,8 @@ async function syncActivity(x) {
     source: x.source || 'Aula UNEMI',
     notes: x.notes || '',
     reminderMinutes: Number.isFinite(Number(x.reminderMinutes)) ? Number(x.reminderMinutes) : 1440,
-    priority: normalizePriority(x.priority)
+    priority: normalizePriority(x.priority),
+    level: normalizeLevel(x.level)
   };
 
   if (!activity.course || !activity.title || !activity.url) {
@@ -248,7 +271,8 @@ async function syncActivity(x) {
         dueDate: activity.dueDate || items[index].dueDate || '',
         source: activity.source,
         notes: items[index].notes || activity.notes,
-        priority: items[index].priority || activity.priority
+        priority: items[index].priority || activity.priority,
+        level: normalizeLevel(items[index].level || activity.level)
       };
       saveLocal(items);
       return { added: false, updated: true, activity: items[index] };
@@ -301,9 +325,10 @@ async function syncActivity(x) {
           url = $5,
           source = $6,
           notes = $7,
-          priority = $8
-      WHERE id = $9
-    `, [activity.course, activity.title, activity.type, dueDate, activity.url, activity.source, notes, priority, old.id]);
+          priority = $8,
+          level = $9
+      WHERE id = $10
+    `, [activity.course, activity.title, activity.type, dueDate, activity.url, activity.source, notes, priority, normalizeLevel(old.level || activity.level), old.id]);
 
     const duplicateIds = matches.slice(1).map(row => row.id);
     if (duplicateIds.length) {
@@ -326,7 +351,8 @@ async function syncActivity(x) {
         source: activity.source,
         notes,
         reminderMinutes: old.reminder_minutes,
-        priority
+        priority,
+        level: normalizeLevel(old.level || activity.level)
       }
     };
   }
@@ -368,7 +394,10 @@ async function addActivity(x) {
         : 1440,
 
     priority:
-      normalizePriority(x.priority)
+      normalizePriority(x.priority),
+
+    level:
+      normalizeLevel(x.level)
   };
 
   /* =========================================
@@ -438,7 +467,8 @@ async function addActivity(x) {
       source,
       notes,
       reminder_minutes,
-      priority
+      priority,
+      level
     )
     VALUES (
       $1,
@@ -452,7 +482,8 @@ async function addActivity(x) {
       $9,
       $10,
       $11,
-      $12
+      $12,
+      $13
     )
     `,
     [
@@ -467,7 +498,8 @@ async function addActivity(x) {
       activity.source,
       activity.notes,
       activity.reminderMinutes,
-      activity.priority
+      activity.priority,
+      activity.level
     ]
   );
 
@@ -564,6 +596,12 @@ async function updateActivity(id, x) {
       normalizePriority(
         x.priority ??
         old.priority
+      ),
+
+    level:
+      normalizeLevel(
+        x.level ??
+        old.level
       )
   };
 
@@ -580,8 +618,9 @@ async function updateActivity(id, x) {
       source = $7,
       notes = $8,
       reminder_minutes = $9,
-      priority = $10
-    WHERE id = $11
+      priority = $10,
+      level = $11
+    WHERE id = $12
     `,
     [
       updated.course,
@@ -594,6 +633,7 @@ async function updateActivity(id, x) {
       updated.notes,
       updated.reminderMinutes,
       updated.priority,
+      updated.level,
       id
     ]
   );
