@@ -69,6 +69,41 @@ function resolveIncomingLevel(x = {}) {
   ) ?? CURRENT_LEVEL;
 }
 
+function normalizeCourseGroup(value = '') {
+  const match = String(value || '')
+    .trim()
+    .match(/^C\s*(\d+)$/i);
+
+  return match
+    ? `C${Number(match[1])}`
+    : '';
+}
+
+function detectCourseGroupFromText(...values) {
+  for (const value of values) {
+
+    const match = String(value || '')
+      .match(/\]\s*-\s*C\s*(\d+)\b/i);
+
+    if (match) {
+      return `C${Number(match[1])}`;
+    }
+  }
+
+  return '';
+}
+
+function resolveIncomingCourseGroup(x = {}) {
+  return (
+    normalizeCourseGroup(x.courseGroup) ||
+    detectCourseGroupFromText(
+      x.rawCourse,
+      x.course,
+      x.notes
+    )
+  );
+}
+
 function isSync(req) {
   const key = req.headers['x-sync-key'];
   return Boolean(SYNC_KEY && key && key === SYNC_KEY);
@@ -114,6 +149,7 @@ function cleanCourseName(name = '') {
   let t = String(name || '').replace(/\s+/g, ' ').trim();
   t = t.replace(/\s*,\s*\[[^\]]*\].*$/i, '');
   t = t.replace(/\s+-\s+C\d+\s*\[[^\]]*\]\s*-\s*[A-Z]\s*$/i, '');
+  t = t.replace(/\s*-\s*\[TI\s*0?(?:10|[1-9])\s*-\s*\d+\]\s*-\s*C\s*\d+.*$/i, '');
   return t.trim();
 }
 
@@ -158,7 +194,8 @@ const readLocal = () => {
     return data.map(item => ({
       ...item,
       priority: normalizePriority(item.priority),
-      level: normalizeLevel(item.level)
+      level: normalizeLevel(item.level),
+      courseGroup: normalizeCourseGroup(item.courseGroup)
     }));
   } catch {
     return [];
@@ -214,6 +251,11 @@ async function initDatabase() {
   `);
 
   await pool.query(`
+    ALTER TABLE activities
+    ADD COLUMN IF NOT EXISTS course_group TEXT DEFAULT ''
+  `);
+
+  await pool.query(`
     UPDATE activities
     SET priority = 'Media'
     WHERE priority IS NULL
@@ -254,7 +296,8 @@ async function getActivities() {
       notes,
       reminder_minutes AS "reminderMinutes",
       priority,
-      level
+      level,
+      course_group AS "courseGroup"
     FROM activities
     ORDER BY created_at DESC
   `);
@@ -281,7 +324,8 @@ async function syncActivity(x) {
     notes: x.notes || '',
     reminderMinutes: Number.isFinite(Number(x.reminderMinutes)) ? Number(x.reminderMinutes) : 1440,
     priority: normalizePriority(x.priority),
-    level: resolveIncomingLevel(x)
+    level: resolveIncomingLevel(x),
+    courseGroup: resolveIncomingCourseGroup(x)
   };
 
   if (!activity.course || !activity.title || !activity.url) {
@@ -303,7 +347,11 @@ async function syncActivity(x) {
         source: activity.source,
         notes: items[index].notes || activity.notes,
         priority: items[index].priority || activity.priority,
-        level: activity.level
+        level: activity.level,
+        courseGroup:
+          activity.courseGroup ||
+          items[index].courseGroup ||
+          ''
       };
       saveLocal(items);
       return { added: false, updated: true, activity: items[index] };
@@ -357,9 +405,15 @@ async function syncActivity(x) {
           source = $6,
           notes = $7,
           priority = $8,
-          level = $9
-      WHERE id = $10
-    `, [activity.course, activity.title, activity.type, dueDate, activity.url, activity.source, notes, priority, activity.level, old.id]);
+          level = $9,
+          course_group = $10
+      WHERE id = $11
+    `, [activity.course, activity.title, activity.type, dueDate, activity.url, activity.source, notes,
+      priority,
+      activity.level,
+      activity.courseGroup || old.course_group || '',
+      old.id
+    ]);
 
     const duplicateIds = matches.slice(1).map(row => row.id);
     if (duplicateIds.length) {
@@ -383,7 +437,11 @@ async function syncActivity(x) {
         notes,
         reminderMinutes: old.reminder_minutes,
         priority,
-        level: activity.level
+        level: activity.level,
+        courseGroup:
+          activity.courseGroup ||
+          old.course_group ||
+          ''
       }
     };
   }
@@ -427,7 +485,11 @@ async function addActivity(x) {
     priority:
       normalizePriority(x.priority),
 
-    level: resolveIncomingLevel(x)
+    level:
+      resolveIncomingLevel(x),
+
+    courseGroup:
+      resolveIncomingCourseGroup(x)
   };
 
   /* =========================================
@@ -498,7 +560,8 @@ async function addActivity(x) {
       notes,
       reminder_minutes,
       priority,
-      level
+      level,
+      course_group
     )
     VALUES (
       $1,
@@ -513,7 +576,8 @@ async function addActivity(x) {
       $10,
       $11,
       $12,
-      $13
+      $13,
+      $14
     )
     `,
     [
@@ -529,7 +593,8 @@ async function addActivity(x) {
       activity.notes,
       activity.reminderMinutes,
       activity.priority,
-      activity.level
+      activity.level,
+      activity.courseGroup
     ]
   );
 
@@ -632,6 +697,13 @@ async function updateActivity(id, x) {
       normalizeLevel(
         x.level ??
         old.level
+      ),
+
+    courseGroup:
+      normalizeCourseGroup(
+        x.courseGroup ??
+        old.course_group ??
+        ''
       )
   };
 
@@ -649,8 +721,9 @@ async function updateActivity(id, x) {
       notes = $8,
       reminder_minutes = $9,
       priority = $10,
-      level = $11
-    WHERE id = $12
+      level = $11,
+      course_group = $12
+    WHERE id = $13
     `,
     [
       updated.course,
@@ -664,6 +737,7 @@ async function updateActivity(id, x) {
       updated.reminderMinutes,
       updated.priority,
       updated.level,
+      updated.courseGroup,
       id
     ]
   );

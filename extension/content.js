@@ -59,6 +59,7 @@
     // Ej.: "PRÁCTICAS LABORALES I,[PPP] - C1[138546] - P" -> "PRÁCTICAS LABORALES I"
     t = t.replace(/\s*,\s*\[[^\]]*\].*$/i, '');
     t = t.replace(/\s+-\s+C\d+\s*\[[^\]]*\]\s*-\s*[A-Z]\s*$/i, '');
+    t = t.replace(/\s*-\s*\[TI\s*0?(?:10|[1-9])\s*-\s*\d+\]\s*-\s*C\s*\d+.*$/i, '');
     return norm(t);
   }
 
@@ -148,6 +149,22 @@
     return null;
   }
 
+  function detectCourseGroupFromText(...values) {
+
+    for (const value of values) {
+
+      const match =
+        norm(value)
+          .match(/\]\s*-\s*C\s*(\d+)\b/i);
+
+      if (match) {
+        return `C${Number(match[1])}`;
+      }
+    }
+
+    return '';
+  }
+
   function getCourseRefFromDoc(doc) {
     const links = [...doc.querySelectorAll('a[href*="/course/view.php"]')];
     const candidates = [];
@@ -227,11 +244,18 @@
       rawHeading
     );
 
+    const courseGroup =
+      detectCourseGroupFromText(
+        courseRef?.text,
+        rawHeading
+      );
+
     const course = await canonicalCourseName(courseRef);
 
     const details = {
       course,
       level,
+      courseGroup,
       title: titleFromDoc(doc, fallbackTitle),
       dueDate: dueDateFromDoc(doc)
     };
@@ -257,7 +281,7 @@
 
   async function buildActivity(url, fallbackTitle = '', old = null) {
     url = canonicalActivityUrl(url);
-    let details = { course:'', level:null, title:cleanTitle(fallbackTitle), dueDate:'' };
+    let details = { course:'', level:null, courseGroup:'', title:cleanTitle(fallbackTitle), dueDate:'' };
     try {
       details = await fetchActivityDetails(url, fallbackTitle);
     } catch (error) {
@@ -277,14 +301,14 @@
       priority: old?.priority || 'Media',
       level:
         details.level ||
-        detectLevelFromText(
-          old?.course,
-          document.querySelector(
-            '.page-header-headings h1, #page-header h1, h1'
-          )?.textContent
-        ) ||
+        detectLevelFromText(old?.course) ||
         old?.level ||
-        null
+        null,
+
+      courseGroup:
+        details.courseGroup ||
+        old?.courseGroup ||
+        ''
     };
   }
 

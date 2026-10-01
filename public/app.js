@@ -493,31 +493,140 @@ function matchesQuickFilter(a, quick, now = new Date()) {
   return true;
 }
 
+function normalizeCourseGroup(value = '') {
+
+  const match =
+    String(value || '')
+      .trim()
+      .match(/^C\s*(\d+)$/i);
+
+  return match
+    ? `C${Number(match[1])}`
+    : '';
+}
+
+
+function courseGroupNumber(value = '') {
+
+  const match =
+    normalizeCourseGroup(value)
+      .match(/^C(\d+)$/);
+
+  return match
+    ? Number(match[1])
+    : Number.MAX_SAFE_INTEGER;
+}
+
+
+function populateCourseGroupFilter() {
+
+  const select =
+    $('#courseGroupFilter');
+
+  if (!select) {
+    return;
+  }
+
+  const selectedLevel =
+    $('#levelFilter')?.value || 'all';
+
+  const current =
+    select.value;
+
+  const groups =
+    [...new Set(
+      activities
+        .filter(
+          a =>
+            selectedLevel === 'all' ||
+            Number(a.level) ===
+            Number(selectedLevel)
+        )
+        .map(
+          a =>
+            normalizeCourseGroup(
+              a.courseGroup
+            )
+        )
+        .filter(Boolean)
+    )]
+      .sort(
+        (a, b) =>
+          courseGroupNumber(a) -
+          courseGroupNumber(b)
+      );
+
+  select.innerHTML =
+    '<option value="all">Todos los cursos</option>' +
+    groups
+      .map(
+        group =>
+          `<option value="${escAttr(group)}">${esc(group)}</option>`
+      )
+      .join('');
+
+  select.value =
+    groups.includes(current)
+      ? current
+      : 'all';
+}
+
+
 function populateCourseFilter() {
-  const select = $('#courseFilter');
-  if (!select) return;
 
-  const levelFilter = $('#levelFilter');
-  const selectedLevel = levelFilter?.value || 'all';
+  const select =
+    $('#courseFilter');
 
-  const current = select.value;
+  if (!select) {
+    return;
+  }
 
-  const filteredByLevel =
-    selectedLevel === 'all'
-      ? activities
-      : activities.filter(
-          a => String(a.level || 8) === String(selectedLevel)
+  const selectedLevel =
+    $('#levelFilter')?.value || 'all';
+
+  const selectedGroup =
+    $('#courseGroupFilter')?.value || 'all';
+
+  const current =
+    select.value;
+
+  const filtered =
+    activities.filter(a => {
+
+      const matchesLevel =
+        selectedLevel === 'all' ||
+        Number(a.level) ===
+        Number(selectedLevel);
+
+      const group =
+        normalizeCourseGroup(
+          a.courseGroup
         );
 
-  const courses = [...new Set(
-    filteredByLevel
-      .map(a => a.course)
-      .filter(Boolean)
-  )].sort((a, b) =>
-    a.localeCompare(b, 'es', {
-      sensitivity: 'base'
-    })
-  );
+      const matchesGroup =
+        selectedGroup === 'all' ||
+        group === selectedGroup;
+
+      return (
+        matchesLevel &&
+        matchesGroup
+      );
+    });
+
+  const courses =
+    [...new Set(
+      filtered
+        .map(a => a.course)
+        .filter(Boolean)
+    )]
+      .sort(
+        (a, b) =>
+          a.localeCompare(
+            b,
+            'es',
+            { sensitivity: 'base' }
+          )
+      );
 
   select.innerHTML =
     '<option value="all">Todas las materias</option>' +
@@ -528,33 +637,30 @@ function populateCourseFilter() {
       )
       .join('');
 
-  if (
-    [...select.options].some(
-      option => option.value === current
-    )
-  ) {
-    select.value = current;
-  } else {
-    select.value = 'all';
-  }
+  select.value =
+    courses.includes(current)
+      ? current
+      : 'all';
 }
 
 function render() {
 
   const searchInput = $('#search');
   const levelFilter = $('#levelFilter');
+  const courseGroupFilter = $('#courseGroupFilter');
   const courseFilter = $('#courseFilter');
   const statusFilter = $('#statusFilter');
   const typeFilter = $('#typeFilter');
   const dateFilter = $('#dateFilter');
   const priorityFilter = $('#priorityFilter');
 
-  if (!searchInput || !levelFilter || !courseFilter || !statusFilter || !typeFilter || !dateFilter || !priorityFilter) {
+  if (!searchInput || !levelFilter || !courseGroupFilter || !courseFilter || !statusFilter || !typeFilter || !dateFilter || !priorityFilter) {
     return;
   }
 
   const q = searchInput.value.toLowerCase().trim();
   const lf = levelFilter.value;
+  const gf = courseGroupFilter.value;
   const cf = courseFilter.value;
   const sf = statusFilter.value;
   const tf = typeFilter.value;
@@ -566,11 +672,19 @@ function render() {
   const filtered = activities.filter(a => {
     const priority = normalizePriority(a.priority);
 
-    const matchesSearch = `${a.course} ${a.title} ${a.type} ${priority}`
+    const matchesSearch = `${a.course} ${a.courseGroup || ''} ${a.title} ${a.type} ${priority}`
       .toLowerCase()
       .includes(q);
 
-    const matchesLevel = lf === 'all' || Number(a.level) === Number(lf);
+    const matchesLevel =
+      lf === 'all' ||
+      Number(a.level) === Number(lf);
+
+    const matchesCourseGroup =
+      gf === 'all' ||
+      normalizeCourseGroup(
+        a.courseGroup
+      ) === gf;
     const matchesCourse = cf === 'all' || a.course === cf;
     const matchesStatus = sf === 'all' || a.status === sf;
     const matchesType = tf === 'all' || a.type === tf;
@@ -578,6 +692,7 @@ function render() {
 
     return matchesSearch &&
       matchesLevel &&
+      matchesCourseGroup &&
       matchesCourse &&
       matchesStatus &&
       matchesType &&
@@ -608,6 +723,7 @@ function render() {
   if (summary) {
     const active = [];
     if (lf !== 'all') active.push(`TI${String(lf).padStart(2, "0")}`);
+    if (gf !== 'all') active.push(gf);
     if (cf !== 'all') active.push(cf);
     if (sf !== 'all') active.push(sf);
     if (tf !== 'all') active.push(tf);
@@ -634,7 +750,7 @@ function render() {
   if (!sorted.length) {
     tbody.innerHTML = `
       <tr>
-        <td class="empty" colspan="8">
+        <td class="empty" colspan="9">
           No hay actividades que coincidan con los filtros seleccionados.
         </td>
       </tr>
@@ -657,6 +773,12 @@ function render() {
     return `
       <tr class="${overdue ? 'overdue-row' : ''}">
         <td><span class="badge">TI${String(a.level || 8).padStart(2, "0")}</span></td>
+
+        <td>
+          <span class="badge">
+            ${esc(a.courseGroup || '—')}
+          </span>
+        </td>
 
         <td class="course-cell">
           <strong>${esc(a.course)}</strong>
@@ -806,9 +928,14 @@ async function load(
           normalizePriority(
             a.priority
           ),
-        level: Number(a.level || 8)
+        level: Number(a.level || 8),
+        courseGroup:
+          normalizeCourseGroup(
+            a.courseGroup
+          )
       }));
 
+    populateCourseGroupFilter();
     populateCourseFilter();
     render();
 
@@ -959,6 +1086,11 @@ if (activityForm) {
         level:
           Number($('#level').value),
 
+        courseGroup:
+          normalizeCourseGroup(
+            $('#courseGroup').value
+          ),
+
         course:
           $('#course')
             .value
@@ -1069,6 +1201,7 @@ if (activityForm) {
 [
   'search',
   'levelFilter',
+  'courseGroupFilter',
   'courseFilter',
   'statusFilter',
   'typeFilter',
@@ -1098,14 +1231,41 @@ if (activityForm) {
    ACTUALIZAR MATERIAS AL CAMBIAR NIVEL
 ========================================= */
 
-const levelFilterForCourses = $('#levelFilter');
+const levelFilterForCourses =
+  $('#levelFilter');
+
+const courseGroupFilterForCourses =
+  $('#courseGroupFilter');
+
 
 if (levelFilterForCourses) {
-  levelFilterForCourses.addEventListener('change', () => {
-    populateCourseFilter();
-    render();
-  });
+
+  levelFilterForCourses
+    .addEventListener(
+      'change',
+      () => {
+
+        populateCourseGroupFilter();
+        populateCourseFilter();
+        render();
+      }
+    );
 }
+
+
+if (courseGroupFilterForCourses) {
+
+  courseGroupFilterForCourses
+    .addEventListener(
+      'change',
+      () => {
+
+        populateCourseFilter();
+        render();
+      }
+    );
+}
+
 
 const clearFiltersBtn = $('#clearFiltersBtn');
 
@@ -1113,6 +1273,8 @@ if (clearFiltersBtn) {
   clearFiltersBtn.onclick = () => {
     $('#search').value = '';
     $('#levelFilter').value = '8';
+    populateCourseGroupFilter();
+    $('#courseGroupFilter').value = 'all';
     populateCourseFilter();
     $('#courseFilter').value = 'all';
     $('#statusFilter').value = 'all';
