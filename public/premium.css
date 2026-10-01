@@ -901,3 +901,83 @@ html[data-theme="dark"] #formCard textarea {
 #themeBtn {
   min-width: 145px;
 }
+
+/* =========================================================
+   CORRECCIONES MODO OSCURO · FILAS / VENCIDAS
+========================================================= */
+
+/* Fila normal */
+html[data-theme="dark"] tbody tr {
+  background: #111827 !important;
+}
+
+/* Todas las celdas de una fila normal */
+html[data-theme="dark"] tbody tr td {
+  background: transparent !important;
+  color: #e2e8f0 !important;
+}
+
+/* Hover normal */
+html[data-theme="dark"] tbody tr:hover {
+  background: #172033 !important;
+}
+
+/* Actividades vencidas: rojo oscuro elegante */
+html[data-theme="dark"] tbody tr.overdue-row {
+  background: #29181d !important;
+}
+
+/* Evita que las celdas vuelvan a rosado claro */
+html[data-theme="dark"] tbody tr.overdue-row td {
+  background: transparent !important;
+  color: #f8fafc !important;
+}
+
+/* Hover sobre vencidas */
+html[data-theme="dark"] tbody tr.overdue-row:hover {
+  background: #351c23 !important;
+}
+
+/* Materia */
+html[data-theme="dark"] tbody tr.overdue-row .course-cell strong {
+  color: #f8fafc !important;
+}
+
+/* Actividad */
+html[data-theme="dark"] tbody tr.overdue-row .activity-cell {
+  color: #e2e8f0 !important;
+}
+
+/* Etiqueta Vencida */
+html[data-theme="dark"] .overdue-tag {
+  background: #7f1d1d !important;
+  color: #fecaca !important;
+  border: 1px solid #991b1b !important;
+}
+
+/* Primera columna TI: que no parezca una tabla separada */
+html[data-theme="dark"] tbody td:first-child {
+  background: transparent !important;
+}
+
+/* Curso */
+html[data-theme="dark"] tbody td:nth-child(2) {
+  background: transparent !important;
+}
+
+/* Separadores de filas */
+html[data-theme="dark"] tbody td {
+  border-bottom: 1px solid #263449 !important;
+}
+
+/* Mejor contraste de fecha */
+html[data-theme="dark"] tbody td {
+  text-shadow: none !important;
+}
+
+/* Si existen textos secundarios dentro de tabla */
+html[data-theme="dark"] tbody td small,
+html[data-theme="dark"] tbody td span:not(.badge):not(.status):not(.overdue-tag) {
+  color: inherit;
+}
+
