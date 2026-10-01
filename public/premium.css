@@ -756,3 +756,148 @@ table,
   animation:
     panelFadeIn .28s ease both;
 }
+/* =========================================================
+   MODO OSCURO
+========================================================= */
+
+html[data-theme="dark"] {
+  color-scheme: dark;
+}
+
+html[data-theme="dark"] body {
+  background:
+    radial-gradient(
+      circle at top right,
+      rgba(14,165,233,.08),
+      transparent 30%
+    ),
+    #0f172a !important;
+
+  color: #e2e8f0 !important;
+}
+
+html[data-theme="dark"] header {
+  background:
+    linear-gradient(
+      135deg,
+      #082f49 0%,
+      #0c4a6e 55%,
+      #075985 100%
+    ) !important;
+}
+
+html[data-theme="dark"] .stat,
+html[data-theme="dark"] .card,
+html[data-theme="dark"] .metric {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+  color: #f8fafc !important;
+}
+
+html[data-theme="dark"] .toolbar {
+  background: rgba(30,41,59,.96) !important;
+  border-color: #334155 !important;
+}
+
+html[data-theme="dark"] .toolbar input,
+html[data-theme="dark"] .toolbar select {
+  background: #0f172a !important;
+  color: #e2e8f0 !important;
+  border-color: #334155 !important;
+}
+
+html[data-theme="dark"] #levelFilter {
+  background: #0c4a6e !important;
+  color: #e0f2fe !important;
+}
+
+html[data-theme="dark"] #courseGroupFilter {
+  background: #312e81 !important;
+  color: #ede9fe !important;
+  border-color: #4c1d95 !important;
+}
+
+html[data-theme="dark"] #courseFilter {
+  background: #172033 !important;
+  color: #e2e8f0 !important;
+}
+
+html[data-theme="dark"] #filterSummary {
+  background: #0c4a6e;
+  color: #bae6fd;
+}
+
+html[data-theme="dark"] table {
+  background: #111827 !important;
+  border-color: #334155 !important;
+}
+
+html[data-theme="dark"] thead {
+  background: #172033 !important;
+}
+
+html[data-theme="dark"] th {
+  color: #94a3b8 !important;
+  border-color: #334155 !important;
+}
+
+html[data-theme="dark"] td {
+  color: #e2e8f0 !important;
+  border-color: #1e293b !important;
+}
+
+html[data-theme="dark"] tbody tr:hover {
+  background: #172033 !important;
+}
+
+html[data-theme="dark"] .course-cell strong {
+  color: #f8fafc !important;
+}
+
+html[data-theme="dark"] .activity-cell {
+  color: #cbd5e1 !important;
+}
+
+html[data-theme="dark"]
+tbody td:first-child .badge {
+  background: #0c4a6e !important;
+  color: #bae6fd !important;
+  border-color: #075985 !important;
+}
+
+html[data-theme="dark"]
+tbody td:nth-child(2) .badge {
+  background: #312e81 !important;
+  color: #ddd6fe !important;
+  border-color: #4c1d95 !important;
+}
+
+html[data-theme="dark"] .quick-filter {
+  background: #1e293b !important;
+  color: #cbd5e1 !important;
+  border-color: #334155 !important;
+}
+
+html[data-theme="dark"] .quick-filter.active {
+  background: #0369a1 !important;
+  color: white !important;
+  border-color: #0284c7 !important;
+}
+
+html[data-theme="dark"] #formCard {
+  background: #172033 !important;
+  color: #e2e8f0 !important;
+  border-color: #334155 !important;
+}
+
+html[data-theme="dark"] #formCard input,
+html[data-theme="dark"] #formCard select,
+html[data-theme="dark"] #formCard textarea {
+  background: #0f172a !important;
+  color: #e2e8f0 !important;
+  border-color: #334155 !important;
+}
+
+#themeBtn {
+  min-width: 145px;
+}

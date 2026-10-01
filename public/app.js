@@ -1379,3 +1379,71 @@ setInterval(
 
 
 
+
+/* =========================================
+   MODO CLARO / OSCURO
+========================================= */
+
+const themeBtn =
+  document.querySelector('#themeBtn');
+
+function getPreferredTheme() {
+
+  const saved =
+    localStorage.getItem('unemi-theme');
+
+  if (saved === 'dark' || saved === 'light') {
+    return saved;
+  }
+
+  return window.matchMedia(
+    '(prefers-color-scheme: dark)'
+  ).matches
+    ? 'dark'
+    : 'light';
+}
+
+function applyTheme(theme) {
+
+  document.documentElement
+    .setAttribute(
+      'data-theme',
+      theme
+    );
+
+  if (themeBtn) {
+    themeBtn.textContent =
+      theme === 'dark'
+        ? '☀️ Modo claro'
+        : '🌙 Modo oscuro';
+  }
+}
+
+applyTheme(
+  getPreferredTheme()
+);
+
+if (themeBtn) {
+
+  themeBtn.addEventListener(
+    'click',
+    () => {
+
+      const current =
+        document.documentElement
+          .getAttribute('data-theme');
+
+      const next =
+        current === 'dark'
+          ? 'light'
+          : 'dark';
+
+      localStorage.setItem(
+        'unemi-theme',
+        next
+      );
+
+      applyTheme(next);
+    }
+  );
+}
